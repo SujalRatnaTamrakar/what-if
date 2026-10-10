@@ -145,6 +145,8 @@ STATIC_URL = 'static/'
 
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 MEDIA_URL = "/media/"
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+MEDIA_URL_TTL_SECONDS = int(os.getenv("MEDIA_URL_TTL_SECONDS", "3600"))
 
 APPEND_SLASH = False
 

@@ -16,7 +16,7 @@ def public_config(request):
             "promptMaxChars": settings.PROMPT_MAX_CHARS,
             "localRadiusKm": settings.LOCAL_RADIUS_KM,
             "localRadiusMaxKm": settings.LOCAL_RADIUS_MAX_KM,
-            "aiDisclosure": "AI reimagined image — illustrative only.",
+            "aiDisclosure": settings.AI_DISCLOSURE,
             "providers": {
                 "prompt": settings.PROMPT_PROVIDER,
                 "render": settings.RENDER_PROVIDER,

@@ -29,6 +29,10 @@ def signed_url(asset: Asset, *, now: int | None = None) -> str:
     return f"{settings.PUBLIC_BASE_URL}/api/v1/media/{asset.id}?{query}"
 
 
+def thumb_url(asset: Asset, *, now: int | None = None) -> str:
+    return f"{signed_url(asset, now=now)}&w=480"
+
+
 def verify_signature(
     asset_id: str,
     expiration: str,

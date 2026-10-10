@@ -39,6 +39,7 @@ if DEBUG and "testserver" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append("testserver")
 
 AUTH_DEV_BYPASS = os.getenv("AUTH_DEV_BYPASS", "false").lower() == "true"
+ANALYTICS_ENABLED = os.getenv("ANALYTICS_ENABLED", "true").lower() == "true"
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", "15728640"))
 MAX_IMAGE_EDGE = int(os.getenv("MAX_IMAGE_EDGE", "2048"))
 PROMPT_MIN_CHARS = int(os.getenv("PROMPT_MIN_CHARS", "5"))

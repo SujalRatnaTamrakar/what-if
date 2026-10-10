@@ -1,4 +1,5 @@
 import logging
+from typing import NoReturn
 
 from rest_framework import status
 from rest_framework.exceptions import (
@@ -37,7 +38,7 @@ class ApiError(APIException):
         super().__init__(detail=message, code=code)
 
 
-def err(code, http_status, message, retryable=False, fields=None):
+def err(code, http_status, message, retryable=False, fields=None) -> NoReturn:
     raise ApiError(
         code=code,
         message=message,

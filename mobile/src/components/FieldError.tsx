@@ -3,7 +3,8 @@
  * Never loses the user's input: it only annotates.
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import { DANGER } from "./PrimaryButton";
 
 export function FieldError({ errors }: { errors?: string[] | null }) {

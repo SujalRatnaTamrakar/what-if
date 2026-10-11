@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const returnTo = encodeURIComponent(redirectUri);
       await WebBrowser.openBrowserAsync(
         `https://${config.auth0Domain}/v2/logout?client_id=${config.auth0ClientId}&returnTo=${returnTo}`
-      ).catch(() => {});
+      ).catch(() => { });
     }
   }, [redirectUri]);
 

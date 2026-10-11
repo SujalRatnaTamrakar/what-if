@@ -4,10 +4,12 @@
  * the caller's form state.
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { ApiError, friendlyMessage } from "../api/errors";
-import { DANGER, INK, MUTED } from "./PrimaryButton";
-import { PrimaryButton } from "./PrimaryButton";
+import { StyleSheet, View } from "react-native";
+import { Text } from "./Text";
+import { ApiError, displayMessage } from "../api/errors";
+import { Button } from "../ui/Button";
+import { AlertIcon } from "./icons";
+import { theme } from "../theme";
 
 interface Props {
   error: unknown;
@@ -25,16 +27,13 @@ export function ErrorState({ error, onRetry, retryLabel = "Try again" }: Props) 
   const apiError = asApiError(error);
   return (
     <View style={styles.wrap} accessibilityRole="alert">
-      <Text style={styles.icon}>⚠️</Text>
-      <Text style={styles.message}>{friendlyMessage(apiError.code)}</Text>
+      <View style={styles.row}>
+        <AlertIcon size={22} color={theme.colors.coral} />
+        <Text style={styles.message}>{displayMessage(apiError)}</Text>
+      </View>
       {__DEV__ ? <Text style={styles.code}>{apiError.code}</Text> : null}
       {onRetry ? (
-        <PrimaryButton
-          title={retryLabel}
-          onPress={onRetry}
-          variant="secondary"
-          style={styles.button}
-        />
+        <Button title={retryLabel} onPress={onRetry} variant="secondary" size="m" style={styles.button} />
       ) : null}
     </View>
   );
@@ -42,15 +41,12 @@ export function ErrorState({ error, onRetry, retryLabel = "Try again" }: Props) 
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: "#FDECEA",
-    borderRadius: 16,
+    backgroundColor: theme.colors.coralSoft,
+    borderRadius: theme.radius.xl,
     padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F5C6C2",
   },
-  icon: { fontSize: 24, marginBottom: 8 },
-  message: { fontSize: 15, color: INK, textAlign: "center", fontWeight: "600" },
-  code: { fontSize: 11, color: MUTED, marginTop: 4, fontFamily: "monospace" },
-  button: { marginTop: 12, minWidth: 160 },
+  row: { flexDirection: "row", alignItems: "center" },
+  message: { flex: 1, marginLeft: 10, fontSize: 15, color: theme.colors.text, fontWeight: "600", lineHeight: 21 },
+  code: { fontSize: 11, color: theme.colors.muted, marginTop: 6, marginLeft: 32 },
+  button: { marginTop: 12, alignSelf: "flex-start" },
 });

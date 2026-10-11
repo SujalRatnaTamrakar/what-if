@@ -1,33 +1,40 @@
 /**
- * mobile/app/proposal/[id]/index.tsx — S6 Proposal detail (§7.5) in the
- * mockup visual language. Before/after header, bold title, author row with
- * avatar, location row, bank icon + recipient, description, support pill,
- * outlined packet download button.
+ * mobile/app/proposal/[id]/index.tsx — S6 Proposal detail (§7.5).
+ * Full-bleed before/after (intro sweep, hold to compare), editorial title,
+ * author + date, place (+distance, open in Maps), recipient, request text,
+ * idempotent Support with a live count, request packet download (shared via
+ * the OS sheet), share, and an "How this was made" AI transparency card.
  */
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import * as FileSystem from "expo-file-system";
-import { Paths } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { api, ApiError, friendlyMessage } from "../../../src/api";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { Text } from "../../../src/components/Text";
+import { Display } from "../../../src/ui/Display";
+import { Button } from "../../../src/ui/Button";
+import { useToast } from "../../../src/ui/Toast";
+import { api, ApiError, friendlyMessage, displayMessage } from "../../../src/api";
 import { config } from "../../../src/config";
 import { useProposal } from "../../../src/hooks/useProposal";
 import { BeforeAfterSlider } from "../../../src/components/BeforeAfterSlider";
 import { SupportButton } from "../../../src/components/SupportButton";
 import { ErrorState } from "../../../src/components/ErrorState";
-import { PrimaryButton } from "../../../src/components/PrimaryButton";
-import { theme } from "../../../src/theme";
+import { ScreenHeader } from "../../../src/components/ScreenHeader";
 import { formatDate } from "../../../src/lib/format";
 import { hrefForProposal, routeForProposal } from "../../../src/lib/routeForProposal";
-import { BankIcon, DownloadIcon, PinIcon } from "../../../src/components/icons";
+import { distanceKm, formatDistance, useProposalLocations, useUserLocation } from "../../../src/lib/places";
+import {
+  BankIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  PinIcon,
+  ShareIcon,
+  ShieldIcon,
+  SparkleIcon,
+} from "../../../src/components/icons";
+import { theme } from "../../../src/theme";
 
 function Avatar({ name }: { name: string }) {
   const initial = (name.trim()[0] ?? "?").toUpperCase();
@@ -41,14 +48,11 @@ function Avatar({ name }: { name: string }) {
 export default function ProposalDetailScreen() {
   const { id } = useLocalSearchParams();
   const pid = Array.isArray(id) ? id[0] : (id as string);
+  const toast = useToast();
   const { data: p, isLoading, error, refetch } = useProposal(pid);
   const [downloading, setDownloading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2600);
-  };
+  const me = useUserLocation(true);
+  const { locations } = useProposalLocations(p ? [{ id: p.id, placeLabel: p.placeLabel }] : []);
 
   if (isLoading) {
     return (
@@ -59,33 +63,55 @@ export default function ProposalDetailScreen() {
   }
   if (error || !p) {
     return (
-      <View style={styles.container}>
-        <Pressable onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
-        <ErrorState error={error} onRetry={() => refetch()} />
+      <View style={styles.screen}>
+        <ScreenHeader title="Proposal" />
+        <View style={{ padding: 20 }}>
+          <ErrorState error={error} onRetry={() => refetch()} />
+        </View>
       </View>
     );
   }
+
+  const at = locations[p.id];
+  const distance = at && me.coords ? formatDistance(distanceKm(me.coords, at)) : null;
+
+  const share = () =>
+    void Share.share({
+      message: `What if? ${p.title || "A neighborhood idea"} — ${p.placeLabel}. ${p.supportCount} neighbor${p.supportCount === 1 ? "" : "s"} support it on WhatIf.`,
+    }).catch(() => {});
+
+  const openInMaps = () => {
+    const q = encodeURIComponent(p.placeLabel);
+    const url = at
+      ? Platform.OS === "ios"
+        ? `http://maps.apple.com/?ll=${at.latitude},${at.longitude}&q=${q}`
+        : `geo:${at.latitude},${at.longitude}?q=${q}`
+      : Platform.OS === "ios"
+        ? `http://maps.apple.com/?q=${q}`
+        : `https://www.google.com/maps/search/?api=1&query=${q}`;
+    void Linking.openURL(url).catch(() => toast.show("Couldn't open Maps.", "error"));
+  };
 
   const downloadPacket = async () => {
     setDownloading(true);
     try {
       const packet = await api.exportPacket(pid);
-      const target = `${Paths.cache.uri}placepatch-${pid}.pdf`;
-      const { uri } = await FileSystem.downloadAsync(packet.url, target);
+      const file = await File.downloadFileAsync(packet.url, new File(Paths.cache, `whatif-${pid}.pdf`), {
+        idempotent: true,
+      });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf" });
+        await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", dialogTitle: "Request packet" });
       } else {
-        showToast("Packet downloaded.");
+        toast.show("Packet downloaded.", "success");
       }
     } catch (e) {
-      showToast(
+      toast.show(
         config.apiMode === "fixture"
           ? "Packet download needs the live backend."
           : e instanceof ApiError
-            ? friendlyMessage(e.code)
-            : "Couldn't download."
+            ? displayMessage(e)
+            : "Couldn't download the packet.",
+        "error"
       );
     } finally {
       setDownloading(false);
@@ -96,195 +122,155 @@ export default function ProposalDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.back}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
-
+      <ScreenHeader
+        title="Proposal"
+        right={
+          <Pressable onPress={share} accessibilityRole="button" accessibilityLabel="Share proposal" hitSlop={8} style={styles.iconBtn}>
+            <ShareIcon size={21} color={theme.colors.text} />
+          </Pressable>
+        }
+      />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {p.concept ? (
           <BeforeAfterSlider
             beforeUri={p.source.url}
             afterUri={p.concept.url}
-            aspectRatio={p.source.width / p.source.height}
+            aspectRatio={Math.max(0.8, p.source.width / p.source.height)}
             beforeLabel="Before"
             afterLabel="After"
+            intro
           />
         ) : (
-          <Text style={styles.muted}>Concept not ready yet.</Text>
+          <View style={styles.noConcept}>
+            <Text style={styles.muted}>Concept not ready yet.</Text>
+          </View>
         )}
 
-        <Text style={styles.title}>{p.title || "Untitled proposal"}</Text>
-
-        <View style={styles.authorRow}>
-          <Avatar name={p.author.displayName} />
-          <Text style={styles.byline}>by {p.author.displayName}</Text>
-        </View>
-
-        <View style={styles.metaRow}>
-          <PinIcon size={16} color={theme.colors.muted} />
-          <Text style={styles.metaText}>{p.placeLabel}</Text>
-        </View>
-        <View style={styles.metaRow}>
-          <BankIcon size={16} color={theme.colors.muted} />
-          <Text style={styles.metaText}>Recipient: {p.recipientLabel}</Text>
-        </View>
-        {p.publishedAt ? (
-          <Text style={styles.date}>Published {formatDate(p.publishedAt)}</Text>
-        ) : null}
-
-        <Text style={styles.description}>{p.changeRequest || p.problemText}</Text>
-
-        <Text style={styles.disclosure}>✦ {p.aiDisclosure}</Text>
-
-        <View style={styles.supportWrap}>
-          <SupportButton proposal={p} />
-        </View>
-
-        <Pressable
-          onPress={downloadPacket}
-          disabled={downloading}
-          accessibilityRole="button"
-          accessibilityLabel="Download request packet"
-          style={({ pressed }) => [
-            styles.packetBtn,
-            pressed && styles.pressed,
-            downloading && styles.busy,
-          ]}
-        >
-          {downloading ? (
-            <ActivityIndicator size="small" color={theme.colors.accent} />
-          ) : (
-            <View style={styles.packetInner}>
-              <DownloadIcon size={18} color={theme.colors.accent} />
-              <Text style={styles.packetText}>Download request packet</Text>
+        <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.pad}>
+          {p.status !== "published" ? (
+            <View style={styles.statusPill}>
+              <Text style={styles.statusText}>{p.status === "ready" ? "Ready to publish" : "Draft"} · only you can see this</Text>
             </View>
-          )}
-        </Pressable>
-        <Text style={styles.packetNote}>
-          Downloading doesn't send this anywhere.
-        </Text>
+          ) : null}
+          <Display size={28} style={styles.title}>
+            {p.title || "Untitled proposal"}
+          </Display>
 
-        {showContinue ? (
-          <PrimaryButton
-            title="Continue editing"
-            onPress={() =>
-              router.push(hrefForProposal(p.id, routeForProposal(p)))
-            }
+          <View style={styles.authorRow}>
+            <Avatar name={p.author.displayName} />
+            <View>
+              <Text style={styles.byline}>by {p.author.displayName}</Text>
+              {p.publishedAt ? <Text style={styles.date}>Published {formatDate(p.publishedAt)}</Text> : null}
+            </View>
+          </View>
+
+          <Pressable onPress={openInMaps} accessibilityRole="button" accessibilityLabel={`Open ${p.placeLabel} in Maps`} style={styles.metaRow}>
+            <PinIcon size={17} color={theme.colors.muted} />
+            <Text style={styles.metaText}>
+              {p.placeLabel}
+              {distance ? <Text style={styles.distance}>  · {distance}</Text> : null}
+            </Text>
+            <ChevronRightIcon size={16} color={theme.colors.faint} />
+          </Pressable>
+          <View style={styles.metaRow}>
+            <BankIcon size={17} color={theme.colors.muted} />
+            <Text style={styles.metaText}>Recipient: {p.recipientLabel}</Text>
+          </View>
+
+          <Text style={styles.description}>{p.changeRequest || p.problemText}</Text>
+
+          <View style={styles.supportWrap}>
+            <SupportButton proposal={p} />
+          </View>
+
+          <Button
+            title="Download request packet"
             variant="secondary"
-            style={styles.continueBtn}
+            onPress={() => void downloadPacket()}
+            loading={downloading}
+            icon={(c) => <DownloadIcon size={18} color={c} />}
+            style={styles.packetBtn}
           />
-        ) : null}
-        <View style={{ height: 40 }} />
+          <Text style={styles.packetNote}>Downloading doesn't send this anywhere.</Text>
+
+          {showContinue ? (
+            <Button
+              title="Continue editing"
+              variant="soft"
+              onPress={() => router.push(hrefForProposal(p.id, routeForProposal(p)))}
+              style={styles.continueBtn}
+            />
+          ) : null}
+
+          <View style={styles.made}>
+            <View style={styles.madeHead}>
+              <SparkleIcon size={16} color={theme.colors.accent} />
+              <Text style={styles.madeTitle}>How this was made</Text>
+            </View>
+            <Text style={styles.madeLine}>{p.aiDisclosure}</Text>
+            {p.scene ? <Text style={styles.madeLine}>Scene: {p.scene.summary}</Text> : null}
+            {p.generation ? (
+              <Text style={styles.madeLine}>
+                Image: {p.generation.model} · {Math.max(1, Math.round(p.generation.durationMs / 1000))}s
+              </Text>
+            ) : null}
+            {p.review ? (
+              <View style={styles.madeRow}>
+                <ShieldIcon size={15} color={theme.colors.accent} />
+                <Text style={styles.madeLine}>
+                  AI review: {p.review.verdict === "clear" ? "clear" : p.review.verdict === "needs_review" ? "author reviewed notes" : "blocked"} ·{" "}
+                  {(100 - p.review.outsideMaskChange * 100).toFixed(1)}% of the photo unchanged
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </Animated.View>
       </ScrollView>
-      {toast ? (
-        <View style={styles.toast}>
-          <Text style={styles.toastText}>{toast}</Text>
-        </View>
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  container: { flex: 1 },
-  content: { padding: theme.spacing.l, paddingBottom: 0 },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.background,
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background },
+  content: { paddingBottom: 48 },
+  pad: { paddingHorizontal: 20 },
+  iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  noConcept: { height: 200, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.paperDeep },
+  statusPill: {
+    alignSelf: "flex-start",
+    backgroundColor: theme.colors.orangeSoft,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 16,
   },
-  back: { paddingVertical: theme.spacing.s, alignSelf: "flex-start" },
-  backText: { fontSize: 16, color: theme.colors.accent, fontWeight: "600" },
-  title: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: theme.colors.text,
-    marginTop: theme.spacing.m,
-    lineHeight: 30,
-  },
-  authorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: theme.spacing.s,
-  },
+  statusText: { fontSize: 12, fontWeight: "600", color: theme.colors.warning },
+  title: { marginTop: 16 },
+  authorRow: { flexDirection: "row", alignItems: "center", marginTop: 14, gap: 10 },
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.accentSoft,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
   },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: theme.colors.accent,
-  },
+  avatarText: { fontSize: 16, fontWeight: "700", color: "#fff" },
   byline: { fontSize: 15, color: theme.colors.text, fontWeight: "600" },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  metaText: { fontSize: 14, color: theme.colors.muted, marginLeft: 6, flex: 1 },
-  date: { fontSize: 13, color: theme.colors.muted, marginTop: 4 },
-  description: {
-    fontSize: 15,
-    color: theme.colors.text,
-    lineHeight: 23,
-    marginTop: theme.spacing.m,
-  },
+  date: { fontSize: 12, color: theme.colors.muted },
+  metaRow: { flexDirection: "row", alignItems: "center", marginTop: 12, gap: 10, minHeight: 28 },
+  metaText: { fontSize: 14, color: theme.colors.muted, flex: 1, lineHeight: 20 },
+  distance: { color: theme.colors.accent, fontWeight: "600" },
+  description: { fontSize: 16, color: theme.colors.text, lineHeight: 25, marginTop: 16 },
   muted: { color: theme.colors.muted, fontSize: 14 },
-  disclosure: {
-    fontSize: 13,
-    color: theme.colors.muted,
-    fontStyle: "italic",
-    marginTop: theme.spacing.m,
-  },
-  supportWrap: { marginTop: theme.spacing.l },
-  packetBtn: {
-    marginTop: theme.spacing.m,
-    minHeight: 52,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  packetInner: { flexDirection: "row", alignItems: "center" },
-  packetText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: theme.colors.accent,
-    marginLeft: 8,
-  },
-  pressed: { opacity: 0.75 },
-  busy: { opacity: 0.6 },
-  packetNote: {
-    fontSize: 12,
-    color: theme.colors.muted,
-    textAlign: "center",
-    marginTop: 6,
-  },
-  continueBtn: { marginTop: theme.spacing.m },
-  toast: {
-    position: "absolute",
-    bottom: 32,
-    left: 24,
-    right: 24,
-    backgroundColor: "#1F2933",
-    borderRadius: theme.radius.m,
-    padding: 14,
-    alignItems: "center",
-  },
-  toastText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  supportWrap: { marginTop: 22 },
+  packetBtn: { marginTop: 12 },
+  packetNote: { fontSize: 12, color: theme.colors.muted, textAlign: "center", marginTop: 8 },
+  continueBtn: { marginTop: 14 },
+  made: { marginTop: 26, backgroundColor: theme.colors.paperDeep, borderRadius: theme.radius.xl, padding: 16, gap: 6 },
+  madeHead: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
+  madeTitle: { fontSize: 14, fontWeight: "700", color: theme.colors.accentDark },
+  madeRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  madeLine: { fontSize: 13, color: theme.colors.muted, lineHeight: 19, flexShrink: 1 },
 });

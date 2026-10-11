@@ -1,45 +1,78 @@
 /**
- * mobile/app/proposal/[id]/generate.tsx — S4 Generate (§7.5).
+ * mobile/app/proposal/[id]/generate.tsx — S4 Generate (§7.5), studio step 4.
  *
  * On entry, if no active preview job exists: api.requestPreview with a fresh
- * expo-crypto UUID Idempotency-Key kept in a ref (StrictMode-safe), then
+ * expo-crypto UUID Idempotency-Key (StrictMode-safe via startedRef), then
  * refetch the proposal (E11 sets status=draft without a revision bump).
- * Shows JobStageList (prompt → render → review → draft → finalize) + elapsed
- * time + the honest "renders take 30–120s" note. On failure: error + Retry
- * (new key) + Adjust brush; STALE_RESULT reloads the proposal. On success →
- * /proposal/[id]/review. Reopening mid-job resumes via proposal.activeJob.
+ * Shows the photo with your brush glowing under an AI scan, the live stage
+ * timeline, elapsed time and the honest "30–120s" note. On failure: error +
+ * Retry (new key) + Adjust brush; STALE_RESULT reloads the proposal. On
+ * success → /proposal/[id]/review. Reopening mid-job resumes via activeJob.
  */
 import React, { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Crypto from "expo-crypto";
+import Svg, { Circle, Path } from "react-native-svg";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { Text } from "../../../src/components/Text";
+import { Display } from "../../../src/ui/Display";
+import { Button } from "../../../src/ui/Button";
+import { Card } from "../../../src/ui/Card";
+import { Dock } from "../../../src/ui/Dock";
+import { StepProgress } from "../../../src/ui/StepProgress";
+import { ScreenHeader } from "../../../src/components/ScreenHeader";
+import { ScanningPhoto } from "../../../src/components/ScanningPhoto";
+import { JobStageList } from "../../../src/components/JobStageList";
+import { ErrorState, asApiError } from "../../../src/components/ErrorState";
+import { BrushIcon, ClockIcon, WandIcon } from "../../../src/components/icons";
 import { api } from "../../../src/api";
+import { ApiError } from "../../../src/api/errors";
 import { useInvalidateProposal, useProposal } from "../../../src/hooks/useProposal";
 import { useJobPolling } from "../../../src/hooks/useJobPolling";
-import { ErrorState, asApiError } from "../../../src/components/ErrorState";
-import { JobStageList } from "../../../src/components/JobStageList";
-import { PrimaryButton, ACCENT, INK, MUTED, PAPER } from "../../../src/components/PrimaryButton";
-import { ApiError } from "../../../src/api/errors";
-import type { JobStage } from "../../../src/api/types";
+import { getMaskDraft } from "../../../src/lib/maskDraft";
+import { fonts, theme } from "../../../src/theme";
+import type { JobStage, MaskStrokes } from "../../../src/api/types";
 
-const PREVIEW_STAGES: JobStage[] = [
-  "queued",
-  "prompt",
-  "render",
-  "review",
-  "draft",
-  "finalize",
-  "done",
+const PREVIEW_STAGES: JobStage[] = ["queued", "prompt", "render", "review", "draft", "finalize", "done"];
+
+const TIPS = [
+  "Only the area you brushed is changed — the rest of your photo stays real.",
+  "An AI reviewer double-checks the edit and flags anything odd.",
+  "AI drafts a polite request to the city you can edit before publishing.",
+  "Every concept is labeled as an AI illustration, never a design.",
 ];
 
 function formatElapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Your brush strokes drawn in the image's own coordinate space. */
+function StrokeOverlay({ strokes, aspect }: { strokes: MaskStrokes; aspect: number }) {
+  const H = 100 / aspect;
+  return (
+    <Svg style={StyleSheet.absoluteFill} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" pointerEvents="none">
+      {strokes.strokes
+        .filter((s) => s.mode === "paint")
+        .map((s, i) => {
+          const pts = s.points.map(([x, y]) => [x * 100, y * H] as const);
+          const w = s.width * 100;
+          if (pts.length === 1) return <Circle key={i} cx={pts[0][0]} cy={pts[0][1]} r={w / 2} fill="rgba(240,160,40,0.5)" />;
+          return (
+            <Path
+              key={i}
+              d={"M " + pts.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join(" L ")}
+              stroke="rgba(240,160,40,0.5)"
+              strokeWidth={w}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          );
+        })}
+    </Svg>
+  );
 }
 
 export default function GenerateScreen() {
@@ -51,6 +84,7 @@ export default function GenerateScreen() {
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [tip, setTip] = useState(0);
 
   // Guards: one requestPreview per screen lifetime (StrictMode double-effect),
   // unless the user explicitly retries.
@@ -71,11 +105,7 @@ export default function GenerateScreen() {
       const key = Crypto.randomUUID();
       const r = await api.requestPreview(
         id as string,
-        {
-          optionId: p.selectedOptionId,
-          maskAssetId: p.maskAssetId,
-          expectedRevision: p.revision,
-        },
+        { optionId: p.selectedOptionId, maskAssetId: p.maskAssetId, expectedRevision: p.revision },
         key
       );
       startTimeRef.current = Date.now();
@@ -84,9 +114,7 @@ export default function GenerateScreen() {
       invalidateProposal(id as string);
     } catch (e) {
       const apiError = asApiError(e);
-      if (apiError.code === "REVISION_CONFLICT") {
-        invalidateProposal(id as string);
-      }
+      if (apiError.code === "REVISION_CONFLICT") invalidateProposal(id as string);
       setError(apiError);
       startedRef.current = false;
     } finally {
@@ -101,65 +129,60 @@ export default function GenerateScreen() {
     const aj = p.activeJob;
     if (aj && aj.kind === "preview") {
       if (aj.status === "queued" || aj.status === "running") {
-        // Reopened mid-job: resume polling (§7.5 S4).
         startedRef.current = true;
         startTimeRef.current = Date.now();
         setJobId(aj.id);
         return;
       }
-      if (aj.status === "succeeded") {
-        router.replace({
-          pathname: "/proposal/[id]/review",
-          params: { id: id as string },
-        });
+      if (aj.status === "succeeded" && p.concept) {
+        startedRef.current = true;
+        router.replace({ pathname: "/proposal/[id]/review", params: { id: id as string } });
         return;
       }
-      // failed: let the user retry below; don't auto-restart.
-      startedRef.current = true;
-      setJobId(aj.id);
-      return;
+      if (aj.status === "failed") {
+        // Let the user retry below; don't auto-restart.
+        startedRef.current = true;
+        setJobId(aj.id);
+        return;
+      }
     }
-    // Generate is only reachable with a scene; a sceneless entry (e.g. a
-    // stale deep link) belongs on suggest, not on a dead error card.
     if (!p.scene) {
-      router.replace({
-        pathname: "/proposal/[id]/suggest",
-        params: { id: id as string },
-      });
+      router.replace({ pathname: "/proposal/[id]/suggest", params: { id: id as string } });
       return;
     }
     void startPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proposal?.id, proposal?.activeJob?.id, proposal?.activeJob?.status]);
 
-  // Elapsed timer while the job runs.
+  // Elapsed timer + rotating tips while the job runs.
   useEffect(() => {
     if (!jobId || job?.status === "succeeded" || job?.status === "failed") return;
-    const t = setInterval(
-      () => setElapsedMs(Date.now() - startTimeRef.current),
-      1000
-    );
-    return () => clearInterval(t);
+    const t = setInterval(() => setElapsedMs(Date.now() - startTimeRef.current), 1000);
+    const r = setInterval(() => setTip((n) => (n + 1) % TIPS.length), 5000);
+    return () => {
+      clearInterval(t);
+      clearInterval(r);
+    };
   }, [jobId, job?.status]);
 
-  // Success → review. Failure → error UI (STALE_RESULT reloads instead).
+  // Success → review (exactly once per job). Failure → error UI
+  // (STALE_RESULT reloads instead).
+  const navigatedForJob = useRef<string | null>(null);
   useEffect(() => {
     if (job?.status === "succeeded") {
-      invalidateProposal(id as string);
-      router.replace({
-        pathname: "/proposal/[id]/review",
-        params: { id: id as string },
-      });
+      if (navigatedForJob.current === job.id) return;
+      navigatedForJob.current = job.id;
+      // Wait for the fresh proposal (with its concept) so Review never sees a
+      // stale, concept-less cache entry and bounces back here.
+      void invalidateProposal(id as string).finally(() =>
+        router.replace({ pathname: "/proposal/[id]/review", params: { id: id as string } })
+      );
     } else if (job?.status === "failed" && job.error) {
       if (job.error.code === "STALE_RESULT") {
         invalidateProposal(id as string);
-        setError(
-          new ApiError(409, "STALE_RESULT", job.error.message, false)
-        );
+        setError(new ApiError(409, "STALE_RESULT", job.error.message, false));
       } else {
-        setError(
-          new ApiError(0, job.error.code, job.error.message, job.error.retryable)
-        );
+        setError(new ApiError(0, job.error.code, job.error.message, job.error.retryable));
       }
     }
   }, [job?.status, id, invalidateProposal, job]);
@@ -169,109 +192,108 @@ export default function GenerateScreen() {
     setError(null);
     setJobId(undefined);
     setElapsedMs(0);
-    // startPreview reads the latest proposal from the query cache.
     void startPreview();
   };
 
   const adjustBrush = () => {
-    // Back to the existing mask screen — its strokes stay in local state
-    // (§7.5 S3) so the user can adjust rather than start over.
-    router.back();
+    // Brush strokes persist in maskDraft, so the user adjusts, not restarts.
+    if (router.canGoBack()) router.back();
+    else router.replace({ pathname: "/proposal/[id]/mask", params: { id: id as string } });
   };
 
-  if (proposalQuery.isLoading || requesting) {
+  if (proposalQuery.isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={ACCENT} />
-        <Text style={styles.hint}>Starting the edit…</Text>
+        <ActivityIndicator size="large" color={theme.colors.accent} />
       </View>
     );
   }
   if (proposalQuery.isError || !proposal) {
     return (
-      <View style={styles.center}>
-        <ErrorState
-          error={proposalQuery.error}
-          onRetry={() => proposalQuery.refetch()}
-        />
+      <View style={styles.root}>
+        <ScreenHeader title="Imagine" />
+        <View style={{ padding: 20 }}>
+          <ErrorState error={proposalQuery.error} onRetry={() => proposalQuery.refetch()} />
+        </View>
       </View>
     );
   }
 
   const missingPrereqs = !proposal.scene || !proposal.selectedOptionId || !proposal.maskAssetId;
+  const option = proposal.scene?.options.find((o) => o.id === proposal.selectedOptionId);
+  const aspect = proposal.source.width / proposal.source.height;
+  const strokes = getMaskDraft(id as string);
+  const running = !error && !missingPrereqs;
 
   return (
     <View style={styles.root}>
-      <View style={styles.content}>
-        <Text style={styles.heading}>Creating your concept</Text>
+      <ScreenHeader title="Imagine" />
+      <StepProgress step={4} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Display size={26}>
+          {error ? "That didn't work." : "Imagining "}
+          {error ? null : (
+            <Display size={26} italic color={theme.colors.accent}>
+              what if…
+            </Display>
+          )}
+        </Display>
+        {option ? <Text style={styles.option}>{option.title}</Text> : null}
+
+        <View style={styles.photo}>
+          <ScanningPhoto
+            uri={proposal.source.url}
+            aspectRatio={aspect}
+            label={requesting ? "Starting the edit…" : "Gemini is painting your change…"}
+            active={running}
+            tint="sun"
+          >
+            {strokes ? <StrokeOverlay strokes={strokes} aspect={aspect} /> : null}
+          </ScanningPhoto>
+        </View>
 
         {missingPrereqs ? (
-          <ErrorState
-            error={new Error("Pick an option and brush an area first.")}
-          />
+          <ErrorState error={new Error("Pick an option and brush an area first.")} />
         ) : error ? (
-          <View style={styles.card}>
-            <ErrorState error={error} />
-            <View style={styles.retryRow}>
-              <PrimaryButton
-                title="Retry"
-                onPress={retry}
-                style={styles.retryBtn}
-              />
-              <PrimaryButton
-                title="Adjust brush"
-                variant="secondary"
-                onPress={adjustBrush}
-                style={styles.retryBtn}
-              />
-            </View>
-          </View>
+          <ErrorState error={error} />
         ) : (
-          <View style={styles.card}>
-            <JobStageList
-              stages={PREVIEW_STAGES}
-              current={job?.stage ?? "queued"}
-            />
-            <Text style={styles.elapsed}>
-              ⏱ {formatElapsed(elapsedMs)} elapsed
-            </Text>
-            <Text style={styles.honest}>
-              Renders take 30–120 seconds. You can leave and come back — the
-              job keeps running.
-            </Text>
-          </View>
+          <Card>
+            <View style={styles.timeRow}>
+              <ClockIcon size={16} color={theme.colors.accent} />
+              <Text style={styles.elapsed}>{formatElapsed(elapsedMs)}</Text>
+              <Text style={styles.honest}>· renders take 30–120s</Text>
+            </View>
+            <JobStageList stages={PREVIEW_STAGES} current={job?.stage ?? "queued"} status={job?.status} />
+            <Animated.Text key={tip} entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.tip}>
+              {TIPS[tip]}
+            </Animated.Text>
+          </Card>
         )}
-      </View>
+      </ScrollView>
+
+      <Dock>
+        {error || missingPrereqs ? (
+          <>
+            {!missingPrereqs ? <Button title="Try again" onPress={retry} icon={(c) => <WandIcon size={18} color={c} />} /> : null}
+            <Button title="Adjust brush" variant="secondary" onPress={adjustBrush} icon={(c) => <BrushIcon size={18} color={c} />} />
+          </>
+        ) : (
+          <Text style={styles.leave}>You can leave — the render keeps going. Find it in Mine.</Text>
+        )}
+      </Dock>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PAPER },
-  content: { flex: 1, padding: 20 },
-  center: {
-    flex: 1,
-    backgroundColor: PAPER,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-  },
-  heading: { fontSize: 22, fontWeight: "800", color: INK, marginBottom: 16 },
-  hint: { color: MUTED, fontSize: 14, marginTop: 12 },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#EDE6D6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  elapsed: { fontSize: 13, color: MUTED, marginTop: 8, fontVariant: ["tabular-nums"] },
-  honest: { fontSize: 13, color: MUTED, marginTop: 8, lineHeight: 19 },
-  retryRow: { flexDirection: "row", gap: 10, marginTop: 14 },
-  retryBtn: { flex: 1 },
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  center: { flex: 1, backgroundColor: theme.colors.background, alignItems: "center", justifyContent: "center" },
+  content: { padding: 20, paddingTop: 6, paddingBottom: 170 },
+  option: { fontSize: 14, color: theme.colors.muted, marginTop: 4 },
+  photo: { marginVertical: 16 },
+  timeRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 14 },
+  elapsed: { fontSize: 15, fontWeight: "700", color: theme.colors.text, fontVariant: ["tabular-nums"] },
+  honest: { fontSize: 13, color: theme.colors.muted },
+  tip: { marginTop: 10, fontFamily: fonts.medium, fontSize: 13, color: theme.colors.accentDark, backgroundColor: theme.colors.accentSoft, padding: 12, borderRadius: 14, lineHeight: 19 },
+  leave: { fontSize: 13, color: theme.colors.muted, textAlign: "center", paddingVertical: 10 },
 });

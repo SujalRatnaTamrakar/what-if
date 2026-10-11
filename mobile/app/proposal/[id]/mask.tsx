@@ -1,71 +1,83 @@
 /**
- * mobile/app/proposal/[id]/mask.tsx — S3 Brush (§7.5).
+ * mobile/app/proposal/[id]/mask.tsx — S3 Brush (§7.5), studio step 3.
  *
- * MaskCanvas over proposal.source.url (contentFit="contain"). Paint/Erase
- * modes, three brush sizes (0.03/0.05/0.08 of width), Undo, Clear. Strokes
- * stay in local state so the user can come back and adjust. Continue is
- * disabled until at least one paint stroke exists → api.saveMask →
- * /proposal/[id]/generate.
+ * MaskCanvas over proposal.source.url (contentFit="contain"). Paint/Erase,
+ * three brush sizes (0.03/0.05/0.08 of width) with a live size preview,
+ * Undo, Clear, peek (hide overlay), and a coverage meter that warns before
+ * the 60% server limit. Strokes persist per proposal (maskDraft) so coming
+ * back to adjust keeps your work. Continue needs ≥1 paint stroke →
+ * api.saveMask → /proposal/[id]/generate.
  */
-import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "../../../src/components/Text";
+import { Button } from "../../../src/ui/Button";
+import { Chip } from "../../../src/ui/Chip";
+import { StepProgress } from "../../../src/ui/StepProgress";
+import { ScreenHeader } from "../../../src/components/ScreenHeader";
+import { MaskCanvas } from "../../../src/components/MaskCanvas";
+import { ErrorState, asApiError } from "../../../src/components/ErrorState";
+import { BrushIcon, EraserIcon, EyeIcon, TrashIcon, UndoIcon, WandIcon } from "../../../src/components/icons";
 import { api } from "../../../src/api";
 import { useInvalidateProposal, useProposal } from "../../../src/hooks/useProposal";
-import { ErrorState, asApiError } from "../../../src/components/ErrorState";
-import { MaskCanvas } from "../../../src/components/MaskCanvas";
-import { PrimaryButton, ACCENT, INK, MUTED, PAPER } from "../../../src/components/PrimaryButton";
+import { getMaskDraft, setMaskDraft } from "../../../src/lib/maskDraft";
+import { maskCoverage } from "../../../src/lib/maskCoverage";
+import { theme } from "../../../src/theme";
 import type { MaskStrokes } from "../../../src/api/types";
 
 const BRUSH_SIZES = [
-  { label: "Small", value: 0.03 },
-  { label: "Medium", value: 0.05 },
-  { label: "Large", value: 0.08 },
+  { label: "S", value: 0.03 },
+  { label: "M", value: 0.05 },
+  { label: "L", value: 0.08 },
 ];
+const LIMIT = 0.6;
 
 export default function MaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const proposalQuery = useProposal(id);
   const invalidateProposal = useInvalidateProposal();
+  const insets = useSafeAreaInsets();
 
-  const [strokes, setStrokes] = useState<MaskStrokes>({ version: 1, strokes: [] });
+  const [strokes, setStrokes] = useState<MaskStrokes>(() => getMaskDraft(id as string) ?? { version: 1, strokes: [] });
   const [mode, setMode] = useState<"paint" | "erase">("paint");
   const [brushWidth, setBrushWidth] = useState(0.05);
+  const [peek, setPeek] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
+  useEffect(() => {
+    if (id) setMaskDraft(id, strokes);
+  }, [id, strokes]);
+
   const proposal = proposalQuery.data;
+  const aspect = proposal ? proposal.source.width / proposal.source.height : 1;
+  const coverage = useMemo(() => maskCoverage(strokes, aspect), [strokes, aspect]);
 
   if (proposalQuery.isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={ACCENT} />
+        <ActivityIndicator size="large" color={theme.colors.accent} />
       </View>
     );
   }
   if (proposalQuery.isError || !proposal) {
     return (
-      <View style={styles.center}>
-        <ErrorState
-          error={proposalQuery.error}
-          onRetry={() => proposalQuery.refetch()}
-        />
+      <View style={styles.root}>
+        <ScreenHeader title="Brush the change" />
+        <View style={{ padding: 20 }}>
+          <ErrorState error={proposalQuery.error} onRetry={() => proposalQuery.refetch()} />
+        </View>
       </View>
     );
   }
 
-  const option = proposal.scene?.options.find(
-    (o) => o.id === proposal.selectedOptionId
-  );
-  const hasPaintStroke = strokes.strokes.some(
-    (s) => s.mode === "paint" && s.points.length > 0
-  );
+  const option = proposal.scene?.options.find((o) => o.id === proposal.selectedOptionId);
+  const hasPaintStroke = strokes.strokes.some((s) => s.mode === "paint" && s.points.length > 0);
+  const empty = strokes.strokes.length === 0;
+  const tooBig = coverage > LIMIT;
+  const pct = Math.round(coverage * 100);
 
   const undo = () => {
     setStrokes((s) => ({ version: 1, strokes: s.strokes.slice(0, -1) }));
@@ -81,17 +93,12 @@ export default function MaskScreen() {
     setSaving(true);
     setError(null);
     try {
-      await api.saveMask(id as string, {
-        expectedRevision: proposal.revision,
-        strokes,
-      });
+      await api.saveMask(id as string, { expectedRevision: proposal.revision, strokes });
       invalidateProposal(id as string);
       router.push({ pathname: "/proposal/[id]/generate", params: { id: id as string } });
     } catch (e) {
       const apiError = asApiError(e);
-      if (apiError.code === "REVISION_CONFLICT") {
-        invalidateProposal(id as string);
-      }
+      if (apiError.code === "REVISION_CONFLICT") invalidateProposal(id as string);
       setError(apiError);
     } finally {
       setSaving(false);
@@ -100,10 +107,22 @@ export default function MaskScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Brush the change</Text>
-        {option ? <Text style={styles.maskHint}>{option.maskHint}</Text> : null}
-      </View>
+      <ScreenHeader
+        title="Brush the change"
+        accentTitle
+        right={
+          <Pressable
+            onPressIn={() => setPeek(true)}
+            onPressOut={() => setPeek(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Hold to see the photo without your brush"
+            style={[styles.peek, peek && styles.peekOn]}
+          >
+            <EyeIcon size={20} color={peek ? "#fff" : theme.colors.text} />
+          </Pressable>
+        }
+      />
+      <StepProgress step={3} />
 
       <View style={styles.canvasWrap}>
         <MaskCanvas
@@ -114,141 +133,132 @@ export default function MaskScreen() {
           onStrokesChange={setStrokes}
           mode={mode}
           brushWidth={brushWidth}
+          overlayVisible={!peek}
         />
-      </View>
-
-      <View style={styles.controls}>
-        <View style={styles.segContainer}>
-          {(["paint", "erase"] as const).map((m) => (
-            <TouchableOpacity
-              key={m}
-              onPress={() => setMode(m)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === m }}
-              style={[styles.seg, mode === m && styles.segActive]}
-            >
-              <Text style={[styles.segText, mode === m && styles.segTextActive]}>
-                {m === "paint" ? "🖌 Paint" : "🧽 Erase"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.row}>
-          {BRUSH_SIZES.map((b) => (
-            <TouchableOpacity
-              key={b.label}
-              onPress={() => setBrushWidth(b.value)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: brushWidth === b.value }}
-              style={[styles.sizePill, brushWidth === b.value && styles.sizePillActive]}
-            >
-              <Text
-                style={[
-                  styles.sizeText,
-                  brushWidth === b.value && styles.sizeTextActive,
-                ]}
-              >
-                {b.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.row}>
-          <TouchableOpacity
-            onPress={undo}
-            disabled={strokes.strokes.length === 0}
-            style={[styles.toolBtn, strokes.strokes.length === 0 && styles.toolDisabled]}
-          >
-            <Text style={styles.toolText}>↩ Undo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={clear}
-            disabled={strokes.strokes.length === 0}
-            style={[styles.toolBtn, strokes.strokes.length === 0 && styles.toolDisabled]}
-          >
-            <Text style={styles.toolText}>🗑 Clear</Text>
-          </TouchableOpacity>
-        </View>
-
-        {error ? (
-          <View style={styles.errorWrap}>
-            <ErrorState error={error} />
+        {option ? (
+          <View style={styles.ideaPill} pointerEvents="none">
+            <WandIcon size={14} color="#fff" />
+            <Text style={styles.ideaText} numberOfLines={1}>
+              {option.title}
+            </Text>
           </View>
         ) : null}
+      </View>
 
-        <PrimaryButton
-          title={saving ? "Saving…" : "Continue"}
-          onPress={saveAndContinue}
-          disabled={!hasPaintStroke || saving}
+      <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+        <View style={styles.row}>
+          <Chip
+            label="Paint"
+            active={mode === "paint"}
+            onPress={() => setMode("paint")}
+            icon={(c) => <BrushIcon size={16} color={c} />}
+          />
+          <Chip
+            label="Erase"
+            active={mode === "erase"}
+            onPress={() => setMode("erase")}
+            icon={(c) => <EraserIcon size={16} color={c} />}
+          />
+          <View style={styles.vr} />
+          {BRUSH_SIZES.map((b) => {
+            const active = brushWidth === b.value;
+            return (
+              <Pressable
+                key={b.label}
+                onPress={() => setBrushWidth(b.value)}
+                accessibilityRole="button"
+                accessibilityLabel={`Brush size ${b.label}`}
+                accessibilityState={{ selected: active }}
+                style={[styles.size, active && styles.sizeOn]}
+              >
+                <View
+                  style={{
+                    width: b.value * 260,
+                    height: b.value * 260,
+                    borderRadius: 99,
+                    backgroundColor: active ? "#fff" : theme.colors.orange,
+                  }}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View>
+          <View style={styles.meterHead}>
+            <Text style={styles.hint} numberOfLines={2}>
+              {option?.maskHint ?? "Brush the area you'd like to change."}
+            </Text>
+            <Text style={[styles.pct, tooBig && { color: theme.colors.coral }]}>{pct}%</Text>
+          </View>
+          <View style={styles.meter} accessibilityLabel={`Brushed ${pct} percent of the photo, limit 60`}>
+            <View
+              style={[
+                styles.meterFill,
+                { width: `${Math.min(100, (coverage / LIMIT) * 100)}%` },
+                tooBig && { backgroundColor: theme.colors.coral },
+              ]}
+            />
+          </View>
+          {tooBig ? <Text style={styles.warn}>That's a lot — brush less than 60% so the AI keeps the rest real.</Text> : null}
+        </View>
+
+        <View style={styles.row}>
+          <Button title="Undo" variant="secondary" size="m" onPress={undo} disabled={empty} icon={(c) => <UndoIcon size={16} color={c} />} style={styles.flex} />
+          <Button title="Clear" variant="secondary" size="m" onPress={clear} disabled={empty} icon={(c) => <TrashIcon size={16} color={c} />} style={styles.flex} />
+        </View>
+
+        {error ? <ErrorState error={error} /> : null}
+
+        <Button
+          title={hasPaintStroke ? "Imagine it" : "Brush first"}
+          onPress={() => void saveAndContinue()}
+          disabled={!hasPaintStroke || tooBig}
           loading={saving}
+          icon={(c) => <WandIcon size={18} color={c} />}
         />
-        {!hasPaintStroke ? (
-          <Text style={styles.needBrush}>Brush the area you'd like to change first.</Text>
-        ) : null}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PAPER },
-  center: {
-    flex: 1,
-    backgroundColor: PAPER,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-  },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  heading: { fontSize: 20, fontWeight: "800", color: ACCENT },
-  maskHint: { fontSize: 14, color: INK, marginTop: 6 },
-  canvasWrap: { flex: 1, backgroundColor: "#111" },
-  controls: { padding: 16, gap: 10, backgroundColor: PAPER },
-  row: { flexDirection: "row", gap: 8 },
-  segContainer: {
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  center: { flex: 1, backgroundColor: theme.colors.background, alignItems: "center", justifyContent: "center" },
+  canvasWrap: { flex: 1, backgroundColor: "#141A17" },
+  ideaPill: {
+    position: "absolute",
+    top: 12,
+    alignSelf: "center",
+    maxWidth: "86%",
     flexDirection: "row",
-    backgroundColor: "#fff",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: theme.colors.scrim,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#E5E0D3",
-    padding: 4,
-    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  seg: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 999,
+  ideaText: { color: "#fff", fontSize: 13, fontWeight: "600", flexShrink: 1 },
+  peek: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  peekOn: { backgroundColor: theme.colors.accent },
+  controls: { paddingHorizontal: 16, paddingTop: 14, gap: 12, backgroundColor: theme.colors.background },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  flex: { flex: 1 },
+  vr: { width: 1, height: 28, backgroundColor: theme.colors.border, marginHorizontal: 2 },
+  size: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.paperDeep,
     alignItems: "center",
     justifyContent: "center",
   },
-  segActive: { backgroundColor: ACCENT },
-  segText: { fontSize: 14, fontWeight: "600", color: MUTED },
-  segTextActive: { color: "#fff" },
-  sizePill: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 999,
-    backgroundColor: "#EFEAE0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sizePillActive: { backgroundColor: ACCENT },
-  sizeText: { fontSize: 14, fontWeight: "600", color: INK },
-  sizeTextActive: { color: "#fff" },
-  toolBtn: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-  },
-  toolDisabled: { opacity: 0.4 },
-  toolText: { fontSize: 14, fontWeight: "600", color: INK },
-  errorWrap: { marginVertical: 4 },
-  needBrush: { fontSize: 12, color: MUTED, textAlign: "center" },
+  sizeOn: { backgroundColor: theme.colors.accent },
+  meterHead: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
+  hint: { flex: 1, fontSize: 14, color: theme.colors.text, lineHeight: 20 },
+  pct: { fontSize: 13, fontWeight: "700", color: theme.colors.accent },
+  meter: { height: 6, borderRadius: 3, backgroundColor: theme.colors.border, marginTop: 8, overflow: "hidden" },
+  meterFill: { height: 6, borderRadius: 3, backgroundColor: theme.colors.orange },
+  warn: { fontSize: 12, color: theme.colors.coral, marginTop: 6 },
 });

@@ -9,13 +9,16 @@ export class ApiError extends Error {
   readonly code: string;
   readonly retryable: boolean;
   readonly fieldErrors: Record<string, string[]>;
+  /** True when the request never got an HTTP response (offline, tunnel down, upload failed). */
+  readonly network: boolean;
 
   constructor(
     status: number,
     code: string,
     message: string,
     retryable: boolean,
-    fieldErrors: Record<string, string[]> = {}
+    fieldErrors: Record<string, string[]> = {},
+    network = false
   ) {
     super(message);
     this.name = "ApiError";
@@ -23,6 +26,7 @@ export class ApiError extends Error {
     this.code = code;
     this.retryable = retryable;
     this.fieldErrors = fieldErrors;
+    this.network = network;
   }
 }
 
@@ -79,4 +83,9 @@ export function friendlyMessage(code: string): string {
     INTERNAL: "Something went wrong on our side. Try again.",
   };
   return map[code] ?? "Something went wrong. Try again.";
+}
+
+/** What to show the user for an error: network failures say so honestly. */
+export function displayMessage(e: ApiError): string {
+  return e.network ? e.message : friendlyMessage(e.code);
 }

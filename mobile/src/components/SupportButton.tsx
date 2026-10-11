@@ -4,10 +4,13 @@
  * double-tap never shows count + 2. Logged-out taps route to sign-in.
  */
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
+import { Text } from "./Text";
 import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useAuth } from "../auth/AuthProvider";
 import { useSupport } from "../hooks/useSupport";
+import { PeopleIcon } from "./icons";
 import type { Proposal } from "../api/types";
 import { theme } from "../theme";
 
@@ -29,6 +32,7 @@ export function SupportButton({ proposal, onLoginRequired }: Props) {
       return;
     }
     if (mutation.isPending) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     mutation.mutate(false);
   };
 
@@ -49,9 +53,18 @@ export function SupportButton({ proposal, onLoginRequired }: Props) {
         mutation.isPending && styles.busy,
       ]}
     >
-      <Text style={[styles.label, supported ? styles.labelSupported : styles.labelUnsupported]}>
+      {supported ? (
+        <PeopleIcon size={22} color={theme.colors.accent} />
+      ) : null}
+      <Text
+        style={[
+          styles.label,
+          supported ? styles.labelSupported : styles.labelUnsupported,
+          supported && { marginLeft: 10 },
+        ]}
+      >
         {supported
-          ? `✓ You support this · ${proposal.supportCount}`
+          ? `You support this · ${proposal.supportCount}`
           : `Support · ${proposal.supportCount}`}
       </Text>
     </TouchableOpacity>
@@ -60,8 +73,9 @@ export function SupportButton({ proposal, onLoginRequired }: Props) {
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
-    borderRadius: theme.radius.m,
+    minHeight: 54,
+    borderRadius: 999,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,

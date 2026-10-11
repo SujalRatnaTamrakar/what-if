@@ -7,15 +7,24 @@
  * "Support" pill (not supported).
  */
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
 import { api } from "../api";
 import { useAuth } from "../auth/AuthProvider";
 import type { Page, ProposalSummary } from "../api/types";
-import { theme } from "../theme";
+import { shadows, theme } from "../theme";
 import { AiLabel } from "./AiLabel";
 import { BookmarkIcon, PeopleIcon, PinIcon } from "./icons";
 
@@ -23,9 +32,13 @@ interface Props {
   item: ProposalSummary;
   onPress: () => void;
   feedScope?: "public" | "mine";
+  distanceLabel?: string | null;
+  index?: number;
 }
 
-export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
+export function ProposalCard({ item, onPress, feedScope = "public", distanceLabel, index = 0 }: Props) {
+  const pop = useSharedValue(1);
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
   const qc = useQueryClient();
   const { isLoggedIn } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -54,6 +67,8 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
     }
     if (busy) return;
     setBusy(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    pop.value = withSequence(withSpring(1.25, { damping: 6, stiffness: 400 }), withSpring(1));
     // Optimistic flip.
     patchFeed((s) => ({
       ...s,
@@ -78,96 +93,108 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
   };
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.title}, ${item.placeLabel}, ${item.supportCount} supporters`}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+    <Animated.View
+      entering={FadeInDown.delay(Math.min(index, 6) * 70).springify().damping(18)}
+      style={styles.card}
     >
-      <View style={styles.images}>
-        <View style={styles.half}>
-          <Image
-            source={{ uri: item.sourceThumbUrl }}
-            style={styles.img}
-            contentFit="cover"
-            accessibilityLabel={`Before photo for ${item.title}`}
-          />
-          <View style={styles.darkLabel}>
-            <Text style={styles.darkLabelText}>Before</Text>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title}, ${item.placeLabel}, ${item.supportCount} supporters`}
+        style={({ pressed }) => pressed && styles.pressed}
+      >
+        <View style={styles.images}>
+          <View style={styles.half}>
+            <Image
+              source={{ uri: item.sourceThumbUrl }}
+              style={styles.img}
+              contentFit="cover"
+              transition={200}
+              accessibilityLabel={`Before photo for ${item.title}`}
+            />
+            <View style={styles.darkLabel}>
+              <Text style={styles.darkLabelText}>Before</Text>
+            </View>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.half}>
+            <Image
+              source={{ uri: item.conceptThumbUrl ?? item.sourceThumbUrl }}
+              style={styles.img}
+              contentFit="cover"
+              transition={200}
+              accessibilityLabel={`AI concept for ${item.title}`}
+            />
+            <AiLabel style={styles.chip} />
+            <View style={styles.darkLabel}>
+              <Text style={styles.darkLabelText}>After</Text>
+            </View>
           </View>
         </View>
-        <View style={styles.half}>
-          <Image
-            source={{ uri: item.conceptThumbUrl ?? item.sourceThumbUrl }}
-            style={styles.img}
-            contentFit="cover"
-            accessibilityLabel={`AI concept for ${item.title}`}
-          />
-          <AiLabel style={styles.chip} />
-          <View style={styles.darkLabel}>
-            <Text style={styles.darkLabelText}>After</Text>
-          </View>
-        </View>
-      </View>
 
-      <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={2}>
-          {item.title}
-        </Text>
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.row}>
+            <PinIcon size={15} color={theme.colors.muted} />
+            <Text style={styles.place} numberOfLines={1}>
+              {item.placeLabel}
+            </Text>
+            {distanceLabel ? <Text style={styles.distance}>· {distanceLabel}</Text> : null}
+          </View>
+        </View>
+      </Pressable>
+
+      <View style={styles.supportRow}>
         <View style={styles.row}>
-          <PinIcon size={15} color={theme.colors.muted} />
-          <Text style={styles.place} numberOfLines={1}>
-            {item.placeLabel}
+          <PeopleIcon size={16} color={theme.colors.accent} />
+          <Text style={styles.supporters}>
+            {item.supportCount} supporter{item.supportCount === 1 ? "" : "s"}
           </Text>
         </View>
-        <View style={styles.supportRow}>
-          <View style={styles.row}>
-            <PeopleIcon size={16} color={theme.colors.accent} />
-            <Text style={styles.supporters}>
-              {item.supportCount} supporter{item.supportCount === 1 ? "" : "s"}
-            </Text>
-          </View>
-          {supported ? (
-            <Pressable
-              onPress={toggleSupport}
-              accessibilityRole="button"
-              accessibilityLabel="Remove your support"
-              style={styles.bookmarkBtn}
-            >
+        {supported ? (
+          <Pressable
+            onPress={toggleSupport}
+            accessibilityRole="button"
+            accessibilityLabel="Remove your support"
+            hitSlop={8}
+            style={styles.bookmarkBtn}
+          >
+            <Animated.View style={popStyle}>
               <BookmarkIcon size={22} color={theme.colors.accent} filled />
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={toggleSupport}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel={`Support ${item.title}`}
-              style={[styles.supportPill, busy && styles.busy]}
-            >
-              <Text style={styles.supportPillText}>Support</Text>
-            </Pressable>
-          )}
-        </View>
+            </Animated.View>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={toggleSupport}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={`Support ${item.title}`}
+            style={({ pressed }) => [
+              styles.supportPill,
+              (busy || pressed) && styles.busy,
+            ]}
+          >
+            <Text style={styles.supportPillText}>Support</Text>
+          </Pressable>
+        )}
       </View>
-    </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.card,
-    borderRadius: 16,
+    borderRadius: 22,
     overflow: "hidden",
     marginBottom: theme.spacing.l,
-    // subtle shadow per mockups
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    ...shadows.card,
   },
+  divider: { width: 2, backgroundColor: theme.colors.card },
   pressed: { opacity: 0.88 },
-  images: { flexDirection: "row", height: 150 },
+  images: { flexDirection: "row", height: 184 },
   half: { flex: 1, position: "relative" },
   img: { width: "100%", height: "100%" },
   darkLabel: {
@@ -181,25 +208,29 @@ const styles = StyleSheet.create({
   },
   darkLabelText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   chip: { position: "absolute", top: 8, right: 8 },
-  body: { padding: theme.spacing.m },
+  body: { paddingHorizontal: theme.spacing.l, paddingTop: theme.spacing.m },
   title: {
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     color: theme.colors.text,
     marginBottom: 6,
   },
   row: { flexDirection: "row", alignItems: "center" },
+  distance: { fontSize: 13, color: theme.colors.accent, fontWeight: "600", marginLeft: 4 },
   place: {
     fontSize: 13,
     color: theme.colors.muted,
     marginLeft: 5,
-    flex: 1,
+    flexShrink: 1,
   },
   supportRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
+    paddingHorizontal: theme.spacing.l,
+    paddingTop: 8,
+    paddingBottom: theme.spacing.m,
+    minHeight: 56,
   },
   supporters: {
     fontSize: 14,

@@ -13,4 +13,4 @@ export type { ApiClient } from "./ApiClient";
 export { setFixtureFailure, getFixtureFailure } from "./fixtureClient";
 export type { FixtureFailure } from "./fixtureClient";
 export { setAuthHooks } from "./liveClient";
-export { ApiError, toApiError, friendlyMessage } from "./errors";
+export { ApiError, toApiError, friendlyMessage, displayMessage } from "./errors";

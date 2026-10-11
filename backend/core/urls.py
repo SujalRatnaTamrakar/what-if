@@ -4,7 +4,7 @@ from core.views.config import public_config
 from core.views.health import health
 from core.views.me import me
 from core.views.media import media
-from core.views.posts import create_post
+from core.views.posts import create_post, get_post
 
 
 urlpatterns = [
@@ -13,4 +13,5 @@ urlpatterns = [
     path("me", me, name="me"),
     path("media/<uuid:asset_id>", media, name="media"),
     path("posts", create_post, name="create-post"),
+    path("posts/<uuid:post_id>", get_post, name="get-post"),
 ]

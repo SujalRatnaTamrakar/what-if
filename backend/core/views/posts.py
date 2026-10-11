@@ -12,12 +12,22 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from common.http import err
 from core.models import Asset, AssetKind, Post, PostStatus
+from core.permissions import get_visible_post_or_404
 from core.serializers import post_payload
 from core.services.events import record
 from core.services.images import sanitize_upload
 
 
 LOCATION_SOURCES = {"gps", "exif", "manual", "none"}
+
+
+@api_view(["GET"])
+def get_post(request, post_id):
+    viewer = request.user if getattr(request.user, "is_authenticated", False) else None
+    post = get_visible_post_or_404(post_id, viewer)
+    lat, lng = _coordinates(request.query_params)
+    viewer_coords = (lat, lng) if lat is not None and lng is not None else None
+    return Response(post_payload(post, viewer, viewer_coords))
 
 
 @api_view(["POST"])

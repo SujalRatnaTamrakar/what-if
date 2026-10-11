@@ -10,6 +10,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "../auth/AuthProvider";
 import { useSupport } from "../hooks/useSupport";
+import { PeopleIcon } from "./icons";
 import type { Proposal } from "../api/types";
 import { theme } from "../theme";
 
@@ -52,9 +53,18 @@ export function SupportButton({ proposal, onLoginRequired }: Props) {
         mutation.isPending && styles.busy,
       ]}
     >
-      <Text style={[styles.label, supported ? styles.labelSupported : styles.labelUnsupported]}>
+      {supported ? (
+        <PeopleIcon size={22} color={theme.colors.accent} />
+      ) : null}
+      <Text
+        style={[
+          styles.label,
+          supported ? styles.labelSupported : styles.labelUnsupported,
+          supported && { marginLeft: 10 },
+        ]}
+      >
         {supported
-          ? `✓ You support this · ${proposal.supportCount}`
+          ? `You support this · ${proposal.supportCount}`
           : `Support · ${proposal.supportCount}`}
       </Text>
     </TouchableOpacity>
@@ -65,6 +75,7 @@ const styles = StyleSheet.create({
   base: {
     minHeight: 54,
     borderRadius: 999,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,

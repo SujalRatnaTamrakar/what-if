@@ -1,18 +1,19 @@
 /**
- * mobile/src/components/PrimaryButton.tsx — the one button style (§7.5 Global).
- * Tappable areas ≥ 44pt. Accent: deep civic green.
+ * mobile/src/components/PrimaryButton.tsx — compatibility wrapper over the
+ * ui/Button (kept so older imports keep working) + legacy color constants.
  */
 import React from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from "react-native";
-import { Text } from "./Text";
+import type { StyleProp, ViewStyle } from "react-native";
+import { Button } from "../ui/Button";
+import { theme } from "../theme";
 
-export const ACCENT = "#1d5c40";
-export const ACCENT_DARK = "#14432e";
-export const ORANGE = "#e8a33d";
-export const PAPER = "#f6f1e7";
-export const INK = "#1F2933";
-export const MUTED = "#6B7280";
-export const DANGER = "#B3261E";
+export const ACCENT = theme.colors.accent;
+export const ACCENT_DARK = theme.colors.accentDark;
+export const ORANGE = theme.colors.orange;
+export const PAPER = theme.colors.background;
+export const INK = theme.colors.text;
+export const MUTED = theme.colors.muted;
+export const DANGER = theme.colors.danger;
 
 interface Props {
   title: string;
@@ -23,60 +24,6 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-export function PrimaryButton({
-  title,
-  onPress,
-  disabled,
-  loading,
-  variant = "primary",
-  style,
-}: Props) {
-  const isDisabled = disabled || loading;
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={isDisabled}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled }}
-      style={[
-        styles.base,
-        variant === "primary" ? styles.primary : styles.secondary,
-        isDisabled && styles.disabled,
-        style,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#fff" : ACCENT} />
-      ) : (
-        <Text
-          style={[
-            styles.label,
-            variant === "primary" ? styles.labelPrimary : styles.labelSecondary,
-          ]}
-        >
-          {title}
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
+export function PrimaryButton(props: Props) {
+  return <Button {...props} />;
 }
-
-const styles = StyleSheet.create({
-  base: {
-    minHeight: 52,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-  primary: { backgroundColor: ACCENT },
-  secondary: {
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: ACCENT,
-  },
-  disabled: { opacity: 0.45 },
-  label: { fontSize: 16, fontWeight: "700" },
-  labelPrimary: { color: "#fff" },
-  labelSecondary: { color: ACCENT },
-});

@@ -237,3 +237,161 @@ export function TrashIcon(p: IconProps) {
     </Base>
   );
 }
+
+export function MapIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9 4L3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z" />
+      <Path d="M9 4v13.5M15 6.5V20" />
+    </Base>
+  );
+}
+
+export function CameraIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M3 8a2 2 0 0 1 2-2h2.2l1.4-2h6.8l1.4 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <Circle cx="12" cy="13" r="4" />
+    </Base>
+  );
+}
+
+export function ImageIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <Circle cx="8.5" cy="8.5" r="1.5" />
+      <Path d="M21 15l-5-5L5 21" />
+    </Base>
+  );
+}
+
+export function LocateIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Circle cx="12" cy="12" r="7" />
+      <Circle cx="12" cy="12" r="2.5" />
+      <Path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </Base>
+  );
+}
+
+export function ShareIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+      <Path d="M16 6l-4-4-4 4" />
+      <Path d="M12 2v13" />
+    </Base>
+  );
+}
+
+export function ArrowRightIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M5 12h14" />
+      <Path d="M12 5l7 7-7 7" />
+    </Base>
+  );
+}
+
+export function ChevronRightIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9 6l6 6-6 6" />
+    </Base>
+  );
+}
+
+export function FlameIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M12 22c4 0 7-2.8 7-6.8 0-3.4-2.2-5.6-3.6-7.2-.4 2-1.6 3.2-2.9 3.6C13 8 11.6 4.6 9 2c0 3.6-4 6.4-4 11.2C5 18.9 8 22 12 22z" />
+    </Base>
+  );
+}
+
+export function ClockIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Circle cx="12" cy="12" r="9" />
+      <Path d="M12 7v5l3 2" />
+    </Base>
+  );
+}
+
+export function HeartIcon({ filled = false, ...p }: IconProps & { filled?: boolean }) {
+  return (
+    <Base {...p}>
+      <Path
+        d="M12 20.5s-8-4.6-8-10.6A4.4 4.4 0 0 1 12 7a4.4 4.4 0 0 1 8 2.9c0 6-8 10.6-8 10.6z"
+        fill={filled ? p.color : "none"}
+      />
+    </Base>
+  );
+}
+
+export function AlertIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Circle cx="12" cy="12" r="9" />
+      <Path d="M12 7.5v5.5" />
+      <Path d="M12 16.5h.01" />
+    </Base>
+  );
+}
+
+export function ShieldIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6z" />
+      <Path d="M8.5 12l2.5 2.5 4.5-5" />
+    </Base>
+  );
+}
+
+export function EyeIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <Circle cx="12" cy="12" r="3" />
+    </Base>
+  );
+}
+
+export function XIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M6 6l12 12M18 6L6 18" />
+    </Base>
+  );
+}
+
+export function LogoutIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <Path d="M16 17l5-5-5-5" />
+      <Path d="M21 12H9" />
+    </Base>
+  );
+}
+
+export function BookIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5z" />
+      <Path d="M4 20.5A1.5 1.5 0 0 0 5.5 22H20" />
+    </Base>
+  );
+}
+
+export function WandIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 20L15 9" />
+      <Path d="M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+      <Path d="M19 11l.6 1.4L21 13l-1.4.6L19 15l-.6-1.4L17 13l1.4-.6z" />
+    </Base>
+  );
+}

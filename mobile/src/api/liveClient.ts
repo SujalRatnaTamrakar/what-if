@@ -5,6 +5,8 @@
  * one silent 401 refresh then onAuthRequired.
  * Framework-free: no React imports. Auth hooks are injected by AuthProvider.
  */
+import { Platform } from "react-native";
+import { File } from "expo-file-system";
 import { config } from "../config";
 import type { ApiClient } from "./ApiClient";
 import { ApiError, toApiError } from "./errors";
@@ -72,8 +74,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
             : JSON.stringify(opts.body),
     });
   } catch (e) {
-    // Network-level failure (offline, DNS, tunnel down)
-    throw new ApiError(0, "PROVIDER_UNAVAILABLE", "Couldn't reach the server. Check your connection.", true);
+    // Network-level failure (offline, DNS, tunnel down, body couldn't be built)
+    if (__DEV__) console.warn(`[api] ${method} ${path} failed before a response:`, e);
+    throw new ApiError(0, "PROVIDER_UNAVAILABLE", "Couldn't reach the server. Check your connection and try again.", true, {}, true);
   }
 
   if (res.status === 401 && !opts._retried) {
@@ -97,6 +100,30 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return body as T;
 }
 
+const photoName = (mimeType: string) =>
+  `photo.${mimeType.split("/")[1]?.replace("jpeg", "jpg") || "jpg"}`;
+
+/**
+ * The photo as a multipart part. SDK 57 installs expo/fetch as the global
+ * fetch, which does NOT accept React Native's `{ uri, name, type }` parts
+ * (the request throws before it is sent). expo/fetch accepts any part that
+ * exposes `bytes()` + `name` + `type`, so read the file via expo-file-system.
+ * On web the browser's fetch wants a real Blob.
+ */
+async function photoPart(uri: string, mimeType: string): Promise<Blob> {
+  if (Platform.OS === "web") {
+    const blob = await (await fetch(uri)).blob();
+    return blob.type ? blob : new Blob([blob], { type: mimeType });
+  }
+  const file = new File(uri);
+  return {
+    name: photoName(mimeType),
+    type: mimeType,
+    size: file.size,
+    bytes: () => file.bytes(),
+  } as unknown as Blob;
+}
+
 const q = (params: Record<string, string | number | undefined>) => {
   const parts = Object.entries(params)
     .filter(([, v]) => v !== undefined)
@@ -109,14 +136,10 @@ export const liveClient: ApiClient = {
   getMe: () => request<Me>("/me"),
   updateMe: (body) => request<Me>("/me", { method: "PATCH", body }),
 
-  createProposal: (input: CreateProposalInput) => {
+  createProposal: async (input: CreateProposalInput) => {
     const form = new FormData();
     // Multipart photo: do NOT set Content-Type manually (boundary is auto-set).
-    form.append("photo", {
-      uri: input.photoUri,
-      name: "photo.jpg",
-      type: input.mimeType,
-    } as unknown as Blob);
+    form.append("photo", await photoPart(input.photoUri, input.mimeType), photoName(input.mimeType));
     form.append("placeLabel", input.placeLabel);
     form.append("problemText", input.problemText);
     form.append("category", input.category);

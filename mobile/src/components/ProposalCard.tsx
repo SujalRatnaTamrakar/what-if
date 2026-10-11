@@ -14,6 +14,13 @@ import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
 import { api } from "../api";
 import { useAuth } from "../auth/AuthProvider";
 import type { Page, ProposalSummary } from "../api/types";
@@ -25,9 +32,13 @@ interface Props {
   item: ProposalSummary;
   onPress: () => void;
   feedScope?: "public" | "mine";
+  distanceLabel?: string | null;
+  index?: number;
 }
 
-export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
+export function ProposalCard({ item, onPress, feedScope = "public", distanceLabel, index = 0 }: Props) {
+  const pop = useSharedValue(1);
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
   const qc = useQueryClient();
   const { isLoggedIn } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -57,6 +68,7 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
     if (busy) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    pop.value = withSequence(withSpring(1.25, { damping: 6, stiffness: 400 }), withSpring(1));
     // Optimistic flip.
     patchFeed((s) => ({
       ...s,
@@ -81,7 +93,10 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
   };
 
   return (
-    <View style={styles.card}>
+    <Animated.View
+      entering={FadeInDown.delay(Math.min(index, 6) * 70).springify().damping(18)}
+      style={styles.card}
+    >
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -126,6 +141,7 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
             <Text style={styles.place} numberOfLines={1}>
               {item.placeLabel}
             </Text>
+            {distanceLabel ? <Text style={styles.distance}>· {distanceLabel}</Text> : null}
           </View>
         </View>
       </Pressable>
@@ -145,7 +161,9 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
             hitSlop={8}
             style={styles.bookmarkBtn}
           >
-            <BookmarkIcon size={22} color={theme.colors.accent} filled />
+            <Animated.View style={popStyle}>
+              <BookmarkIcon size={22} color={theme.colors.accent} filled />
+            </Animated.View>
           </Pressable>
         ) : (
           <Pressable
@@ -162,21 +180,21 @@ export function ProposalCard({ item, onPress, feedScope = "public" }: Props) {
           </Pressable>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.card,
-    borderRadius: 16,
+    borderRadius: 22,
     overflow: "hidden",
     marginBottom: theme.spacing.l,
     ...shadows.card,
   },
   divider: { width: 2, backgroundColor: theme.colors.card },
   pressed: { opacity: 0.88 },
-  images: { flexDirection: "row", height: 170 },
+  images: { flexDirection: "row", height: 184 },
   half: { flex: 1, position: "relative" },
   img: { width: "100%", height: "100%" },
   darkLabel: {
@@ -192,17 +210,18 @@ const styles = StyleSheet.create({
   chip: { position: "absolute", top: 8, right: 8 },
   body: { paddingHorizontal: theme.spacing.l, paddingTop: theme.spacing.m },
   title: {
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     color: theme.colors.text,
     marginBottom: 6,
   },
   row: { flexDirection: "row", alignItems: "center" },
+  distance: { fontSize: 13, color: theme.colors.accent, fontWeight: "600", marginLeft: 4 },
   place: {
     fontSize: 13,
     color: theme.colors.muted,
     marginLeft: 5,
-    flex: 1,
+    flexShrink: 1,
   },
   supportRow: {
     flexDirection: "row",

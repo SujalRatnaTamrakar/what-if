@@ -2,7 +2,8 @@
   "expo": {
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f6f1e7"
       },
       "package": "dev.placepatch.mobile"
     },
@@ -10,22 +11,45 @@
       "bundleIdentifier": "dev.placepatch.mobile",
       "supportsTablet": true
     },
-    "name": "PlacePatch",
-    "newArchEnabled": true,
+    "name": "WhatIf",
     "orientation": "portrait",
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#f6f1e7"
+        }
+      ],
       "expo-font",
-      "expo-splash-screen",
       "expo-status-bar",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "WhatIf uses your location to show proposals near you and to pin the place you photograph."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "WhatIf needs your photos so you can pick a picture of a place to improve.",
+          "cameraPermission": "WhatIf uses the camera to photograph a place you want to improve."
+        }
+      ]
     ],
     "scheme": "placepatch",
     "slug": "placepatch",
     "userInterfaceStyle": "light",
     "version": "1.0.0",
     "web": {
-      "bundler": "metro"
-    }
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "icon": "./assets/icon.png",
+    "description": "WhatIf \u2014 photograph a place, brush the change, and let AI imagine it. Rally neighbors with a before/after."
   }
 }

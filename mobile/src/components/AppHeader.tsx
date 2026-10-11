@@ -1,46 +1,45 @@
 /**
- * mobile/src/components/AppHeader.tsx — mockup header: sprout logo +
- * "PlacePatch" wordmark (green "Place", orange "Patch"), tagline
- * "People. Places. Brighter tomorrows.", search + kebab icons right.
+ * mobile/src/components/AppHeader.tsx — brand header: sprout mark +
+ * "WhatIf" wordmark (green "What", orange "If") + tagline; search and
+ * "how it works" actions on the right.
  */
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import { router } from "expo-router";
 import { Text } from "./Text";
 import { theme } from "../theme";
-import { KebabIcon, SearchIcon, SproutIcon } from "./icons";
+import { BookIcon, SearchIcon, SproutIcon } from "./icons";
 
 interface Props {
   onSearch?: () => void;
-  onMenu?: () => void;
+  title?: string;
 }
 
-export function AppHeader({ onSearch, onMenu }: Props) {
+export function AppHeader({ onSearch, title }: Props) {
   return (
     <View style={styles.wrap}>
-      <SproutIcon size={36} />
+      <SproutIcon size={34} />
       <View style={styles.titleWrap}>
-        <Text style={styles.wordmark}>
-          <Text style={styles.place}>Place</Text>
-          <Text style={styles.patch}>Patch</Text>
+        <Text style={styles.wordmark} accessibilityRole="header">
+          <Text style={styles.place}>What</Text>
+          <Text style={styles.patch}>If</Text>
+          {title ? <Text style={styles.section}>  {title}</Text> : null}
         </Text>
         <Text style={styles.tagline}>People. Places. Brighter tomorrows.</Text>
       </View>
       <View style={styles.icons}>
+        {onSearch ? (
+          <Pressable onPress={onSearch} accessibilityRole="button" accessibilityLabel="Search" style={styles.iconBtn}>
+            <SearchIcon size={22} color={theme.colors.text} />
+          </Pressable>
+        ) : null}
         <Pressable
-          onPress={onSearch}
+          onPress={() => router.push("/onboarding")}
           accessibilityRole="button"
-          accessibilityLabel="Search"
+          accessibilityLabel="How WhatIf works"
           style={styles.iconBtn}
         >
-          <SearchIcon size={22} color={theme.colors.text} />
-        </Pressable>
-        <Pressable
-          onPress={onMenu}
-          accessibilityRole="button"
-          accessibilityLabel="More options"
-          style={styles.iconBtn}
-        >
-          <KebabIcon size={22} color={theme.colors.text} />
+          <BookIcon size={21} color={theme.colors.text} />
         </Pressable>
       </View>
     </View>
@@ -48,17 +47,13 @@ export function AppHeader({ onSearch, onMenu }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    paddingBottom: 12,
-  },
-  titleWrap: { flex: 1, marginLeft: 10 },
-  wordmark: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  wrap: { flexDirection: "row", alignItems: "center", paddingHorizontal: 2, paddingBottom: 4 },
+  titleWrap: { flex: 1, marginLeft: 8 },
+  wordmark: { fontSize: 25, fontWeight: "700", letterSpacing: -0.6 },
   place: { color: theme.colors.accent },
   patch: { color: theme.colors.orange },
-  tagline: { fontSize: 12, color: theme.colors.muted, marginTop: 1 },
+  section: { color: theme.colors.faint, fontSize: 16, fontWeight: "500" },
+  tagline: { fontSize: 12, color: theme.colors.muted, marginTop: -2 },
   icons: { flexDirection: "row", alignItems: "center" },
-  iconBtn: { padding: 8 },
+  iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
 });

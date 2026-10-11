@@ -1,78 +1,103 @@
 #!/usr/bin/env python3
-"""Validate shared JSON fixtures against OpenAPI component schemas."""
+"""Validate every fixture JSON against the matching component schema in
+shared/contract/openapi.yaml. Exits nonzero with a clear message on failure.
 
-from __future__ import annotations
-
-import argparse
+Usage: python3 scripts/validate_fixtures.py
+Run from the repo root.
+"""
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
-import jsonschema
 import yaml
+from jsonschema import Draft202012Validator
 
+ROOT = Path(__file__).resolve().parent.parent
+SPEC = ROOT / "shared" / "contract" / "openapi.yaml"
+FIXTURES = ROOT / "shared" / "fixtures"
 
-ROOT = Path(__file__).resolve().parents[1]
-CONTRACT_PATH = ROOT / "shared" / "contract" / "openapi.yaml"
-FIXTURES_DIR = ROOT / "shared" / "fixtures"
-SCHEMA_BY_FIXTURE = {
+# fixture filename -> component schema name
+MAPPING = {
     "config.json": "PublicConfig",
     "me.json": "Me",
-    "post_draft.json": "Post",
-    "post_ready.json": "Post",
-    "post_published.json": "Post",
+    "proposal_created.json": "ProposalCreateResponse",
+    "job_scene_running.json": "Job",
+    "job_scene_succeeded.json": "Job",
+    "proposal_with_scene.json": "Proposal",
     "mask_saved.json": "MaskSaved",
-    "generate_accepted.json": "GenerateAccepted",
-    "job_queued.json": "Job",
-    "error_revision_conflict.json": "ErrorEnvelope",
-    "error_auth_required.json": "ErrorEnvelope",
+    "preview_accepted.json": "JobAccepted",
+    "job_preview_render.json": "Job",
+    "job_preview_succeeded.json": "Job",
+    "job_preview_failed.json": "Job",
+    "proposal_ready.json": "Proposal",
+    "proposal_ready_blocked.json": "Proposal",
+    "proposal_published.json": "Proposal",
+    "support_first.json": "SupportResult",
+    "support_repeat.json": "SupportResult",
+    "packet.json": "Packet",
+    "feed_public.json": "ProposalListPage",
+    "feed_mine.json": "ProposalListPage",
+    "error_revision_conflict.json": "ErrorBody",
+    "error_provider_unavailable.json": "ErrorBody",
+    "error_auth_required.json": "ErrorBody",
 }
 
 
-def load_contract() -> dict[str, Any]:
-    return yaml.safe_load(CONTRACT_PATH.read_text())
-
-
-def validate_fixture(
-    fixture_path: Path,
-    schema_name: str,
-    contract: dict[str, Any],
-) -> None:
-    payload = json.loads(fixture_path.read_text())
-    schema = contract["components"]["schemas"][schema_name]
-    resolver = jsonschema.RefResolver.from_schema(contract)
-    jsonschema.Draft202012Validator(schema, resolver=resolver).validate(payload)
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "fixture",
-        nargs="*",
-        help="Fixture filename(s), defaulting to every registered fixture.",
-    )
-    args = parser.parse_args()
+    spec = yaml.safe_load(SPEC.read_text())
+    schemas = spec["components"]["schemas"]
+    failures = []
+    checked = 0
 
-    names = args.fixture or sorted(SCHEMA_BY_FIXTURE)
-    unknown = [name for name in names if name not in SCHEMA_BY_FIXTURE]
-    if unknown:
-        print(f"Unknown fixture(s): {', '.join(unknown)}", file=sys.stderr)
-        return 2
-
-    contract = load_contract()
-    failures = 0
-    for name in names:
-        path = FIXTURES_DIR / name
-        try:
-            validate_fixture(path, SCHEMA_BY_FIXTURE[name], contract)
-        except (OSError, json.JSONDecodeError, jsonschema.ValidationError) as exc:
-            print(f"FAIL {name}: {exc}", file=sys.stderr)
-            failures += 1
+    for filename, schema_name in sorted(MAPPING.items()):
+        path = FIXTURES / filename
+        if not path.exists():
+            failures.append(f"{filename}: MISSING FILE")
+            continue
+        if schema_name not in schemas:
+            failures.append(f"{filename}: schema '{schema_name}' not in openapi.yaml")
+            continue
+        data = json.loads(path.read_text())
+        validator = Draft202012Validator(_resolve(spec, schema_name))
+        errors = sorted(validator.iter_errors(data), key=lambda e: list(e.path))
+        if errors:
+            for e in errors:
+                loc = "/".join(str(p) for p in e.path) or "(root)"
+                failures.append(f"{filename}: {loc}: {e.message}")
         else:
-            print(f"OK   {name}")
-    return 1 if failures else 0
+            checked += 1
+
+    # Also confirm the images exist (not validated, just present)
+    for img in ("images/source.jpg", "images/concept.jpg"):
+        if not (FIXTURES / img).exists():
+            failures.append(f"{img}: MISSING FILE")
+        else:
+            checked += 1
+
+    if failures:
+        print(f"FAILED: {len(failures)} problem(s), {checked} fixture(s) OK")
+        for f in failures:
+            print("  -", f)
+        return 1
+    print(f"OK: all {checked} fixtures validate against shared/contract/openapi.yaml")
+    return 0
+
+
+def _resolve(spec: dict, name: str) -> dict:
+    """Inline-resolve local $refs so jsonschema sees a self-contained schema."""
+    schemas = spec["components"]["schemas"]
+
+    def resolve(node):
+        if isinstance(node, dict):
+            if set(node.keys()) == {"$ref"} and node["$ref"].startswith("#/components/schemas/"):
+                return resolve(schemas[node["$ref"].rsplit("/", 1)[1]])
+            return {k: resolve(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [resolve(v) for v in node]
+        return node
+
+    return resolve(schemas[name])
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

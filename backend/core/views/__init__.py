@@ -1,1 +1,1 @@
-"""HTTP views for the core API."""
+"""View package (P4)."""

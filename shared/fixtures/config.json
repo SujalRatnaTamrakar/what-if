@@ -1,15 +1,1 @@
-{
-  "apiVersion": "1",
-  "maxUploadBytes": 15728640,
-  "maxImageEdge": 2048,
-  "promptMinChars": 5,
-  "promptMaxChars": 300,
-  "localRadiusKm": 10,
-  "localRadiusMaxKm": 50,
-  "aiDisclosure": "AI reimagined image — illustrative only.",
-  "providers": {
-    "prompt": "fake",
-    "render": "fake",
-    "review": "fake"
-  }
-}
+{"aiDisclosure":"AI illustration — not an engineering design.","apiVersion":"1","categories":["shade"],"maxImageEdge":2048,"maxUploadBytes":15728640,"providers":{"render":"comfyui","review":"gemini","scene":"ollama"}}

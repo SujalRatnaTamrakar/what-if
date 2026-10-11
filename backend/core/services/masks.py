@@ -1,223 +1,116 @@
+"""Mask rasterization — §5.7 of the master plan.
+
+Clients send strokes in normalized coordinates; the backend rasterizes them
+at the source image's exact pixel size into an L-mode PNG (255 = edit).
+Coverage must be 0.5%–60% of pixels.
+"""
 from __future__ import annotations
 
-import hashlib
 import uuid
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, NoReturn, cast
 
 from django.conf import settings
-from PIL import Image, ImageDraw, UnidentifiedImageError
-from rest_framework import status
+from PIL import Image, ImageDraw
 
-from common.http import err
+from core.exceptions import ApiError
 
-
-MAX_STROKES = 200
-MAX_POINTS = 5000
-MIN_COVERAGE = 0.005
-MAX_COVERAGE = 0.60
-MASK_MIME_TYPE = "image/png"
+_MAX_STROKES = 200
+_MAX_POINTS = 5000
+_MIN_COVERAGE = 0.005
+_MAX_COVERAGE = 0.60
 
 
-def rasterize_strokes(
-    strokes_payload: Mapping[str, Any],
-    *,
-    width: int,
-    height: int,
-) -> Image.Image:
-    """Rasterize normalized paint/erase strokes to a source-sized binary mask."""
-    if strokes_payload.get("version") != 1:
-        _validation("strokes.version", "version must be 1.")
-
-    strokes_value = strokes_payload.get("strokes")
-    if not isinstance(strokes_value, list) or not strokes_value:
-        _mask_empty()
-    strokes = cast(list[Any], strokes_value)
-    if len(strokes) > MAX_STROKES:
-        _validation("strokes", "A maximum of 200 strokes is allowed.")
-
-    mask = Image.new("L", (width, height), 0)
-    draw = ImageDraw.Draw(mask)
+def _validate_strokes(strokes: dict) -> list[dict]:
+    if not isinstance(strokes, dict) or strokes.get("version") != 1:
+        raise ApiError("VALIDATION_ERROR", field_errors={"strokes": ["version must be 1."]})
+    raw = strokes.get("strokes")
+    if not isinstance(raw, list):
+        raise ApiError("VALIDATION_ERROR", field_errors={"strokes": ["strokes must be a list."]})
+    if len(raw) > _MAX_STROKES:
+        raise ApiError("VALIDATION_ERROR", field_errors={"strokes": [f"At most {_MAX_STROKES} strokes."]})
     total_points = 0
-
-    for index, stroke in enumerate(strokes):
-        if not isinstance(stroke, Mapping):
-            _validation(f"strokes[{index}]", "Each stroke must be an object.")
-        stroke = cast(Mapping[str, Any], stroke)
-        mode = stroke.get("mode")
-        if mode not in {"paint", "erase"}:
-            _validation(
-                f"strokes[{index}].mode",
-                "Stroke mode must be paint or erase.",
-            )
-        try:
-            brush_width = float(stroke["width"])
-        except (KeyError, TypeError, ValueError):
-            _validation(
-                f"strokes[{index}].width",
-                "Stroke width must be a number.",
-            )
-        if not 0 < brush_width <= 1:
-            _validation(
-                f"strokes[{index}].width",
-                "Stroke width must be greater than 0 and at most 1.",
-            )
-
-        points = stroke.get("points")
-        if not isinstance(points, list) or not points:
-            _mask_empty()
-        points = cast(list[Any], points)
-        total_points += len(points)
-        if total_points > MAX_POINTS:
-            _validation("strokes", "A maximum of 5,000 points is allowed.")
-
-        pixel_points = []
-        for point_index, point in enumerate(points):
+    for i, s in enumerate(raw):
+        if not isinstance(s, dict) or s.get("mode") not in ("paint", "erase"):
+            raise ApiError("VALIDATION_ERROR", field_errors={"strokes": [f"Stroke {i}: mode must be paint or erase."]})
+        w = s.get("width")
+        if not isinstance(w, (int, float)) or not (0 < w <= 1):
+            raise ApiError("VALIDATION_ERROR", field_errors={"strokes": [f"Stroke {i}: width must be in (0, 1]."]})
+        pts = s.get("points")
+        if not isinstance(pts, list) or not pts:
+            raise ApiError("VALIDATION_ERROR", field_errors={"strokes": [f"Stroke {i}: points must be non-empty."]})
+        total_points += len(pts)
+        for p in pts:
             if (
-                not isinstance(point, (list, tuple))
-                or len(point) != 2
+                not isinstance(p, (list, tuple)) or len(p) != 2
+                or not all(isinstance(c, (int, float)) and 0 <= c <= 1 for c in p)
             ):
-                _validation(
-                    f"strokes[{index}].points[{point_index}]",
-                    "Each point must contain normalized x and y values.",
-                )
-            try:
-                x, y = float(point[0]), float(point[1])
-            except (TypeError, ValueError):
-                _validation(
-                    f"strokes[{index}].points[{point_index}]",
-                    "Point coordinates must be numbers.",
-                )
-            if not 0 <= x <= 1 or not 0 <= y <= 1:
-                _validation(
-                    f"strokes[{index}].points[{point_index}]",
-                    "Point coordinates must be between 0 and 1.",
-                )
-            pixel_points.append(
-                (
-                    round(x * (width - 1)),
-                    round(y * (height - 1)),
-                )
-            )
+                raise ApiError("VALIDATION_ERROR", field_errors={"strokes": [f"Stroke {i}: points must be [x, y] in [0, 1]."]})
+    if total_points > _MAX_POINTS:
+        raise ApiError("VALIDATION_ERROR", field_errors={"strokes": [f"At most {_MAX_POINTS} points in total."]})
+    return raw
 
-        fill = 255 if mode == "paint" else 0
-        line_width = max(1, round(brush_width * width))
-        if len(pixel_points) == 1:
-            x, y = pixel_points[0]
-            radius = line_width / 2
-            draw.ellipse(
-                (x - radius, y - radius, x + radius, y + radius),
-                fill=fill,
-            )
+
+def _coverage(img: Image.Image) -> float:
+    hist = img.histogram()
+    nonzero = sum(hist[1:])
+    return nonzero / (img.width * img.height)
+
+
+def _check_coverage(img: Image.Image) -> None:
+    cov = _coverage(img)
+    if cov < _MIN_COVERAGE:
+        raise ApiError("MASK_EMPTY")
+    if cov > _MAX_COVERAGE:
+        raise ApiError("MASK_TOO_LARGE")
+
+
+def _save_mask(img: Image.Image) -> tuple[Path, str]:
+    masks_dir = Path(settings.MEDIA_ROOT) / "masks"
+    masks_dir.mkdir(parents=True, exist_ok=True)
+    rel_name = f"{uuid.uuid4().hex}.png"
+    out_path = masks_dir / rel_name
+    img.save(out_path, format="PNG")
+    return out_path, f"masks/{rel_name}"
+
+
+def rasterize_strokes(strokes: dict, width: int, height: int) -> tuple[str, float]:
+    """Rasterize normalized strokes → PNG mask. Returns (rel_path, coverage)."""
+    parsed = _validate_strokes(strokes)
+    canvas = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(canvas)
+    for s in parsed:
+        color = 255 if s["mode"] == "paint" else 0
+        r = (float(s["width"]) * width) / 2.0
+        pts = [(float(x) * width, float(y) * height) for x, y in s["points"]]
+        lw = max(1, int(round(2 * r)))
+        if len(pts) == 1:
+            x, y = pts[0]
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=color)
         else:
-            draw.line(
-                pixel_points,
-                fill=fill,
-                width=line_width,
-                joint="curve",
-            )
-            radius = line_width / 2
-            for x, y in (pixel_points[0], pixel_points[-1]):
-                draw.ellipse(
-                    (x - radius, y - radius, x + radius, y + radius),
-                    fill=fill,
-                )
-
-    return _validate_coverage(mask)
+            draw.line(pts, fill=color, width=lw, joint="curve")
+            for x, y in pts:
+                draw.ellipse([x - r, y - r, x + r, y + r], fill=color)
+    # Binarize (antialiased edges → 255/0).
+    canvas = canvas.point(lambda v: 255 if v >= 128 else 0, mode="L")
+    _check_coverage(canvas)
+    _, rel = _save_mask(canvas)
+    return rel, _coverage(canvas)
 
 
-def save_mask_image(
-    image: Image.Image,
-    *,
-    owner_id: Any,
-    post_id: Any,
-) -> dict[str, Any]:
-    """Persist a validated grayscale mask and return asset fields."""
-    output_dir = Path(settings.MEDIA_ROOT) / "masks"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{uuid.uuid4()}.png"
-    image.save(output_path, format="PNG", optimize=True)
-    return {
-        "owner_id": owner_id,
-        "post_id": post_id,
-        "file_path": output_path.relative_to(Path(settings.MEDIA_ROOT)).as_posix(),
-        "mime_type": MASK_MIME_TYPE,
-        "width": image.width,
-        "height": image.height,
-        "sha256": _sha256(output_path),
-    }
-
-
-def sanitize_png_mask(upload: Any, *, width: int, height: int) -> Image.Image:
-    """Read and validate a PNG mask uploaded at source dimensions."""
-    upload_size = getattr(upload, "size", None)
-    if upload_size is not None and upload_size > settings.MAX_UPLOAD_BYTES:
-        err(
-            "MASK_TOO_LARGE",
-            status.HTTP_400_BAD_REQUEST,
-            "The mask exceeds the allowed size.",
-        )
+def validate_png_mask(uploaded_file, width: int, height: int) -> tuple[str, float]:
+    """Alternate PNG path: exact source size, pixels >= 128 count as edit."""
     try:
-        upload.seek(0)
-        with Image.open(upload) as image:
-            if (image.format or "").upper() != "PNG":
-                _validation("mask", "The mask must be a PNG file.")
-            if image.size != (width, height):
-                err(
-                    "MASK_SIZE_MISMATCH",
-                    status.HTTP_400_BAD_REQUEST,
-                    "The mask must match the source image dimensions.",
-                )
-            mask = image.convert("L").copy()
-    except (UnidentifiedImageError, OSError, ValueError):
-        _validation("mask", "The mask must be a valid PNG file.")
-    return _validate_coverage(mask)
-
-
-def _validate_coverage(mask: Image.Image) -> Image.Image:
-    binary = mask.point(
-        lambda value: 255 if cast(int, value) >= 128 else 0,
-        mode="L",
-    )
-    painted = sum(binary.histogram()[128:])
-    coverage = painted / (binary.width * binary.height)
-    if painted == 0:
-        _mask_empty()
-    if coverage > MAX_COVERAGE:
-        err(
-            "MASK_TOO_LARGE",
-            status.HTTP_400_BAD_REQUEST,
-            "The painted mask area must be at most 60% of the image.",
-        )
-    if coverage < MIN_COVERAGE:
-        _validation(
-            "mask",
-            "The painted mask area must be at least 0.5% of the image.",
-        )
-    return binary
-
-
-def _validation(field: str, message: str) -> NoReturn:
-    err(
-        "VALIDATION_ERROR",
-        status.HTTP_400_BAD_REQUEST,
-        message,
-        fields={field: [message]},
-    )
-
-
-def _mask_empty() -> NoReturn:
-    err(
-        "MASK_EMPTY",
-        status.HTTP_400_BAD_REQUEST,
-        "The mask must paint an area to edit.",
-    )
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as output_file:
-        for chunk in iter(lambda: output_file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+        img = Image.open(uploaded_file)
+        img.load()
+    except Exception:
+        raise ApiError("VALIDATION_ERROR", field_errors={"mask": ["Not a readable PNG."]})
+    if img.width != width or img.height != height:
+        raise ApiError("MASK_SIZE_MISMATCH")
+    gray = img.convert("L").point(lambda v: 255 if v >= 128 else 0, mode="L")
+    _check_coverage(gray)
+    _, rel = _save_mask(gray)
+    try:
+        uploaded_file.close()
+    except Exception:
+        pass
+    return rel, _coverage(gray)

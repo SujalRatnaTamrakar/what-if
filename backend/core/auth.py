@@ -1,98 +1,116 @@
-import hashlib
-from functools import lru_cache
+"""Auth0 JWT authentication — §9.5 step 2 of the master plan.
+
+Verifies RS256 access tokens against the Auth0 JWKS, audience and issuer.
+Identity is the token ``sub``. Dev bypass via X-Dev-User only when
+DEBUG and AUTH_DEV_BYPASS are both true (curl/testing only — never the demo).
+"""
+from __future__ import annotations
+
+import time
 
 import jwt
 import requests
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from django.utils.encoding import force_str
+from rest_framework.authentication import BaseAuthentication, get_authorization_header
+
+from core.exceptions import ApiError
+from core.models import User
+
+_JWKS_CACHE: dict = {}
+_JWKS_TTL_SECONDS = 600
 
 
-User = get_user_model()
+def _jwks_keys(domain: str, kid: str | None, _force_refresh: bool = False):
+    now = time.time()
+    entry = _JWKS_CACHE.get(domain)
+    if entry is None or _force_refresh or now - entry["at"] > _JWKS_TTL_SECONDS:
+        resp = requests.get(f"https://{domain}/.well-known/jwks.json", timeout=10)
+        resp.raise_for_status()
+        entry = {"at": now, "keys": resp.json().get("keys", [])}
+        _JWKS_CACHE[domain] = entry
+    keys = entry["keys"]
+    if kid:
+        matches = [k for k in keys if k.get("kid") == kid]
+        if matches:
+            return matches[0]
+        # Unknown kid: the key set may have rotated — refetch once.
+        if not _force_refresh:
+            return _jwks_keys(domain, kid, _force_refresh=True)
+        return None
+    return keys[0] if keys else None
+
+
+def _display_name_for_new_user(domain: str, token: str, sub: str) -> str:
+    try:
+        resp = requests.get(
+            f"https://{domain}/userinfo",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        if resp.ok:
+            data = resp.json()
+            name = data.get("name") or data.get("nickname")
+            if name:
+                return str(name)[:40]
+    except Exception:
+        pass
+    tail = "".join(ch for ch in sub if ch.isalnum())[-4:] or "xxxx"
+    return f"Neighbor-{tail}"
 
 
 class Auth0JWTAuthentication(BaseAuthentication):
-    """Authenticate local development users or verified Auth0 bearer tokens."""
+    keyword = "Bearer"
 
     def authenticate(self, request):
-        if settings.DEBUG and getattr(settings, "AUTH_DEV_BYPASS", False):
-            dev_user = request.headers.get("X-Dev-User", "").strip()
+        # Dev bypass (never in the demo): X-Dev-User acts as dev|<name>.
+        if settings.DEBUG and settings.AUTH_DEV_BYPASS:
+            dev_user = request.headers.get("X-Dev-User")
             if dev_user:
-                return _get_or_create_user(f"dev|{dev_user}"), None
+                name = dev_user.strip()[:40] or "dev"
+                user, created = User.objects.get_or_create(
+                    auth0_sub=f"dev|{name}",
+                    defaults={"display_name": name},
+                )
+                return (user, None)
 
-        authorization = request.headers.get("Authorization", "")
-        if not authorization:
-            return None
-        if not authorization.startswith("Bearer "):
-            raise AuthenticationFailed("Invalid authorization header.")
+        header = get_authorization_header(request).split()
+        if not header:
+            return None  # no credentials — views decide whether auth is required
+        if len(header) != 2 or header[0].lower() != b"bearer":
+            raise ApiError("AUTH_REQUIRED", "Malformed Authorization header.")
+        token = force_str(header[1])
 
-        token = authorization[7:].strip()
-        if not token:
-            raise AuthenticationFailed("Invalid bearer token.")
+        try:
+            unverified = jwt.get_unverified_header(token)
+        except jwt.PyJWTError:
+            raise ApiError("AUTH_REQUIRED", "Invalid token.")
 
-        claims = _decode_token(token)
-        subject = claims.get("sub")
-        if not isinstance(subject, str) or not subject:
-            raise AuthenticationFailed("Token subject is missing.")
-        return _get_or_create_user(subject, token), claims
+        domain = settings.AUTH0_DOMAIN
+        jwk_dict = _jwks_keys(domain, unverified.get("kid"))
+        if not jwk_dict:
+            raise ApiError("AUTH_REQUIRED", "Unknown signing key.")
+        try:
+            public_key = jwt.algorithms.RSAAlgorithm.from_jwk(jwk_dict)
+            claims = jwt.decode(
+                token,
+                public_key,
+                algorithms=["RS256"],
+                audience=settings.AUTH0_AUDIENCE,
+                issuer=f"https://{domain}/",
+                leeway=30,
+            )
+        except jwt.PyJWTError:
+            raise ApiError("AUTH_REQUIRED", "Token verification failed.")
 
-    def authenticate_header(self, request):  # type: ignore[reportIncompatibleMethodOverride]
-        request.META.get("HTTP_AUTHORIZATION")
-        return "Bearer"
+        sub = claims.get("sub")
+        if not sub:
+            raise ApiError("AUTH_REQUIRED", "Token has no subject.")
+        user, created = User.objects.get_or_create(auth0_sub=sub)
+        if created:
+            user.display_name = _display_name_for_new_user(domain, token, sub)
+            user.save(update_fields=["display_name"])
+        return (user, token)
 
-
-def _decode_token(token: str) -> dict:
-    try:
-        key = _jwks_client().get_signing_key_from_jwt(token).key
-        return jwt.decode(
-            token,
-            key,
-            algorithms=["RS256"],
-            audience=settings.AUTH0_AUDIENCE,
-            issuer=f"https://{settings.AUTH0_DOMAIN}/",
-        )
-    except (jwt.PyJWTError, requests.RequestException, ValueError) as exc:
-        raise AuthenticationFailed("Invalid bearer token.") from exc
-
-
-@lru_cache(maxsize=4)
-def _jwks_client():
-    if not settings.AUTH0_DOMAIN:
-        raise AuthenticationFailed("Auth0 is not configured.")
-    return jwt.PyJWKClient(
-        f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json",
-        cache_keys=True,
-        lifespan=600,
-    )
-
-
-def _get_or_create_user(subject: str, token: str | None = None):
-    user, created = User.objects.get_or_create(auth0_sub=subject)
-    if created:
-        display_name = _auth0_display_name(token) if token else None
-        suffix = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:4]
-        setattr(user, "display_name", display_name or f"Neighbor-{suffix}")
-        user.save(update_fields=["display_name"])
-    return user
-
-
-def _auth0_display_name(token: str | None) -> str | None:
-    if not token or not settings.AUTH0_DOMAIN:
-        return None
-    try:
-        response = requests.get(
-            f"https://{settings.AUTH0_DOMAIN}/userinfo",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=2,
-        )
-        response.raise_for_status()
-        profile = response.json()
-    except (requests.RequestException, ValueError):
-        return None
-
-    name = profile.get("name") or profile.get("nickname")
-    if not isinstance(name, str):
-        return None
-    name = name.strip()[:40]
-    return name or None
+    def authenticate_header(self, request):
+        return 'Bearer realm="api"'

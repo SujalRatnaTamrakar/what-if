@@ -1,0 +1,1 @@
+Write a respectful, specific community request (title ≤ 80 chars, body 3-6 sentences) asking the responsible organization to consider {option}. Mention the place and problem. Include 'This image is an AI illustration, not a design.' Do not claim cost, approval, compliance or that anyone has agreed.

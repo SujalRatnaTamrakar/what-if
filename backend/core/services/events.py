@@ -1,32 +1,24 @@
+"""Analytics events — §9.4/§9.5. Never raises; no-op when disabled."""
+from __future__ import annotations
+
 import logging
-from typing import Any
 
-from core.models import Event, Post, User
+from django.conf import settings
 
-
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
-def record(
-    event_type: str,
-    *,
-    post: Post | None = None,
-    user: User | None = None,
-    data: dict[str, Any] | None = None,
-) -> Event | None:
-    """Record an analytics event without interrupting the main request."""
-    from django.conf import settings
-
+def record(event_type: str, *, proposal_id=None, user_id=None, data: dict | None = None) -> None:
     if not settings.ANALYTICS_ENABLED:
-        return None
-
+        return
     try:
-        return Event.objects.create(
+        from core.models import Event
+
+        Event.objects.create(
             type=event_type,
-            post=post,
-            user=user,
+            proposal_id=proposal_id,
+            user_id=user_id,
             data=data or {},
         )
     except Exception:
-        logger.exception("Failed to record analytics event", extra={"event_type": event_type})
-        return None
+        log.exception("events.record failed (non-fatal)")

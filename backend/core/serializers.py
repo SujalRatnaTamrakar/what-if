@@ -1,192 +1,182 @@
+"""Explicit camelCase serializers — §5.3 of the master plan.
+
+No DRF ModelSerializers: every wire field is built by hand so the contract
+stays exact. Timestamps are ISO-8601 UTC with Z (§5.1).
+"""
 from __future__ import annotations
 
-import math
-from datetime import datetime, timezone as dt_timezone
-from importlib import import_module
-from typing import Any
-
 from django.conf import settings
-from core.models import Asset, Job, JobStatus, Post, User
-from core.services.signing import signed_url, thumb_url
+
+from core.models import Asset, Job, Packet, Proposal, User
+from core.services import signing
 
 
-def author_payload(user: User, viewer: User | None = None) -> dict[str, Any]:
+def z(dt) -> str | None:
+    """ISO-8601 UTC with Z (§5.1)."""
+    if dt is None:
+        return None
+    return _fmt(dt)
+
+
+def _fmt(dt) -> str:
+    # Normalize to UTC and format with Z.
+    from datetime import timezone
+
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def asset_dict(asset: Asset | None) -> dict | None:
+    if asset is None:
+        return None
+    url, exp = signing.media_url(str(asset.id))
     return {
-        "displayName": user.display_name,
-        "isViewer": viewer is not None and user.pk == viewer.pk,
-    }
-
-
-def asset_payload(asset: Asset, *, thumbnail: bool = False) -> dict[str, Any]:
-    url = thumb_url(asset) if thumbnail else signed_url(asset)
-    expiration = _url_expiration(url)
-    return {
-        "id": str(asset.pk),
+        "id": str(asset.id),
         "kind": asset.kind,
         "width": asset.width,
         "height": asset.height,
         "mimeType": asset.mime_type,
         "sha256": asset.sha256,
         "url": url,
-        "urlExpiresAt": _timestamp(expiration),
+        "urlExpiresAt": _fmt(_exp_dt(exp)),
     }
 
 
-def public_location(
-    post: Post,
-    viewer: User | None = None,
-) -> dict[str, Any] | None:
-    if post.lat is None or post.lng is None:
+def _exp_dt(exp: int):
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(exp, tz=timezone.utc)
+
+
+def thumb_url(asset: Asset | None) -> str | None:
+    """Signed URL for the feed thumbnail (falls back to the full asset URL)."""
+    if asset is None:
         return None
+    if asset.thumb_path:
+        url, _exp = signing.media_url(str(asset.id))
+        # Thumbs are served through the same signed media endpoint; the view
+        # prefers thumb_path when ?thumb=1 is present.
+        return f"{url}&thumb=1"
+    url, _ = signing.media_url(str(asset.id))
+    return url
 
-    is_owner = viewer is not None and getattr(post, "owner_id") == viewer.pk
-    decimals = None if is_owner else settings.PUBLIC_COORD_DECIMALS
+
+def author_dict(user: User, viewer: User | None) -> dict:
     return {
-        "lat": post.lat if decimals is None else round(post.lat, decimals),
-        "lng": post.lng if decimals is None else round(post.lng, decimals),
-        "source": post.location_source,
+        "displayName": user.display_name,
+        "isViewer": viewer is not None and str(viewer.id) == str(user.id),
     }
 
 
-def post_payload(
-    post: Post,
-    viewer: User | None = None,
-    viewer_coords: tuple[float, float] | None = None,
-) -> dict[str, Any]:
-    owner = viewer is not None and getattr(post, "owner_id") == viewer.pk
-    concept_id = getattr(post, "concept_id")
-    concept = post.concept if concept_id else None
+def job_dict(job: Job | None) -> dict | None:
+    if job is None:
+        return None
     return {
-        "id": str(post.id),
-        "revision": post.revision,
-        "status": post.status,
-        "createdAt": _timestamp(post.created_at),
-        "updatedAt": _timestamp(post.updated_at),
-        "publishedAt": _timestamp(post.published_at),
-        "author": author_payload(post.owner, viewer),
-        "title": post.title,
-        "prompt": post.prompt,
-        "placeLabel": post.place_label,
-        "location": public_location(post, viewer),
-        "distanceKm": _distance_km(post, viewer_coords),
-        "source": asset_payload(post.source),
-        "concept": asset_payload(concept) if concept else None,
-        "maskAssetId": (
-            str(getattr(post, "mask_id"))
-            if owner and getattr(post, "mask_id")
-            else None
-        ),
-        "review": post.review,
-        "generation": post.generation,
-        "activeJob": _active_job_payload(post),
-        "aiDisclosure": settings.AI_DISCLOSURE,
-        "score": post.score,
-        "upvotes": post.upvotes,
-        "downvotes": post.downvotes,
-        "viewerVote": _viewer_vote(post, viewer),
-        "commentCount": post.comment_count,
-    }
-
-
-def post_summary_payload(
-    post: Post,
-    viewer: User | None = None,
-    viewer_coords: tuple[float, float] | None = None,
-) -> dict[str, Any]:
-    concept_id = getattr(post, "concept_id")
-    concept = post.concept if concept_id else None
-    return {
-        "id": str(post.id),
-        "status": post.status,
-        "title": post.title,
-        "promptPreview": post.prompt[:140],
-        "placeLabel": post.place_label,
-        "location": public_location(post, viewer),
-        "distanceKm": _distance_km(post, viewer_coords),
-        "publishedAt": _timestamp(post.published_at),
-        "updatedAt": _timestamp(post.updated_at),
-        "sourceThumbUrl": thumb_url(post.source),
-        "conceptThumbUrl": thumb_url(concept) if concept else None,
-        "score": post.score,
-        "viewerVote": _viewer_vote(post, viewer),
-        "commentCount": post.comment_count,
-        "author": author_payload(post.owner, viewer),
-    }
-
-
-def job_payload(job: Job) -> dict[str, Any]:
-    return {
-        "id": str(job.pk),
-        "postId": str(job.post.pk),
+        "id": str(job.id),
+        "proposalId": str(job.proposal_id),
         "kind": job.kind,
         "status": job.status,
         "stage": job.stage,
         "attempt": job.attempt,
-        "createdAt": _timestamp(job.created_at),
-        "updatedAt": _timestamp(job.updated_at),
+        "createdAt": _fmt(job.created_at),
+        "updatedAt": _fmt(job.updated_at),
         "error": job.error,
     }
 
 
-def me_payload(user: User) -> dict[str, Any]:
+def proposal_dict(p: Proposal, viewer: User | None, active_job: Job | None = None) -> dict:
+    viewer_supported = False
+    if viewer is not None:
+        from core.models import Support
+
+        viewer_supported = Support.objects.filter(proposal=p, user=viewer).exists()
+    is_owner = viewer is not None and str(viewer.id) == str(p.owner_id)
     return {
-        "id": str(user.pk),
-        "displayName": user.display_name,
-        "createdAt": _timestamp(user.created_at),
+        "id": str(p.id),
+        "revision": p.revision,
+        "status": p.status,
+        "createdAt": _fmt(p.created_at),
+        "updatedAt": _fmt(p.updated_at),
+        "publishedAt": _fmt(p.published_at) if p.published_at else None,
+        "author": author_dict(p.owner, viewer),
+        "category": p.category,
+        "placeLabel": p.place_label,
+        "problemText": p.problem_text,
+        "title": p.title,
+        "changeRequest": p.change_request,
+        "recipientLabel": p.recipient_label,
+        "selectedOptionId": p.selected_option_id,
+        "source": asset_dict(p.source),
+        "concept": asset_dict(p.concept),
+        "maskAssetId": str(p.mask_id) if (is_owner and p.mask_id) else None,
+        "scene": p.scene,
+        "review": p.review,
+        "generation": p.generation,
+        "activeJob": job_dict(active_job),
+        "aiDisclosure": f"{settings.AI_DISCLOSURE} Generated by PlacePatch.",
+        "supportCount": p.support_count,
+        "viewerHasSupported": viewer_supported,
     }
 
 
-def _active_job_payload(post: Post) -> dict[str, Any] | None:
-    job = (
-        Job.objects.filter(
-            post=post,
-            status__in=(JobStatus.QUEUED, JobStatus.RUNNING),
-        )
-        .order_by("-created_at")
-        .first()
-    )
-    return job_payload(job) if job else None
+def proposal_summary_dict(p: Proposal, viewer: User | None) -> dict:
+    viewer_supported = False
+    if viewer is not None:
+        from core.models import Support
+
+        viewer_supported = Support.objects.filter(proposal=p, user=viewer).exists()
+    return {
+        "id": str(p.id),
+        "status": p.status,
+        "title": p.title,
+        "placeLabel": p.place_label,
+        "category": p.category,
+        "publishedAt": _fmt(p.published_at) if p.published_at else None,
+        "updatedAt": _fmt(p.updated_at),
+        "sourceThumbUrl": thumb_url(p.source),
+        "conceptThumbUrl": thumb_url(p.concept),
+        "supportCount": p.support_count,
+        "viewerHasSupported": viewer_supported,
+        "author": author_dict(p.owner, viewer),
+    }
 
 
-def _viewer_vote(post: Post, viewer: User | None) -> int:
-    if viewer is None:
-        return 0
-    try:
-        vote_model = getattr(import_module("community.models"), "Vote")
-    except ImportError:
-        return 0
-    vote = (
-        vote_model.objects.filter(post=post, user=viewer)
-        .values_list("value", flat=True)
-        .first()
-    )
-    return vote or 0
+def me_dict(user: User) -> dict:
+    return {
+        "id": str(user.id),
+        "displayName": user.display_name,
+        "createdAt": _fmt(user.created_at),
+    }
 
 
-def _distance_km(
-    post: Post,
-    viewer_coords: tuple[float, float] | None,
-) -> float | None:
-    if viewer_coords is None or post.lat is None or post.lng is None:
-        return None
-    viewer_lat, viewer_lng = map(math.radians, viewer_coords)
-    post_lat, post_lng = math.radians(post.lat), math.radians(post.lng)
-    delta_lat = post_lat - viewer_lat
-    delta_lng = post_lng - viewer_lng
-    haversine = (
-        math.sin(delta_lat / 2) ** 2
-        + math.cos(viewer_lat) * math.cos(post_lat) * math.sin(delta_lng / 2) ** 2
-    )
-    return round(6371 * 2 * math.asin(math.sqrt(haversine)), 1)
+def support_result_dict(proposal_id: str, support_count: int, already_supported: bool) -> dict:
+    return {
+        "proposalId": str(proposal_id),
+        "supportCount": support_count,
+        "viewerHasSupported": True,
+        "alreadySupported": already_supported,
+    }
 
 
-def _timestamp(value: datetime | int | None) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.astimezone(dt_timezone.utc).isoformat().replace("+00:00", "Z")
-    return datetime.fromtimestamp(value, dt_timezone.utc).isoformat().replace("+00:00", "Z")
+def packet_dict(packet: Packet) -> dict:
+    url, exp = signing.packet_url(str(packet.id))
+    return {
+        "url": url,
+        "expiresAt": _fmt(_exp_dt(exp)),
+        "exportedAt": _fmt(packet.exported_at),
+        "supportCountAtExport": packet.support_count_at_export,
+    }
 
 
-def _url_expiration(url: str) -> int:
-    return int(url.split("exp=", 1)[1].split("&", 1)[0])
+def public_config_dict() -> dict:
+    return {
+        "apiVersion": "1",
+        "categories": ["shade"],
+        "maxUploadBytes": settings.MAX_UPLOAD_BYTES,
+        "maxImageEdge": settings.MAX_IMAGE_EDGE,
+        "aiDisclosure": settings.AI_DISCLOSURE,
+        "providers": {
+            "scene": (settings.SCENE_PROVIDER or "fake").lower(),
+            "render": (settings.RENDER_PROVIDER or "fake").lower(),
+            "review": (settings.REVIEW_PROVIDER or "fake").lower(),
+        },
+    }

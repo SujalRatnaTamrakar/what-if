@@ -1,0 +1,83 @@
+# PlacePatch deploy — final hosting on a Vultr VM (see §9.5 step 8).
+#
+# Services:
+#   db      Postgres 16 (only when NOT using Tiger Data Cloud)
+#   api     Django + gunicorn, serves /api/v1 and signed media
+#   worker  manage.py run_worker (DB-backed queue)
+#   caddy   TLS reverse proxy (automatic HTTPS)
+#
+# GPU models (Ollama / ComfyUI) stay OFF this host: run them on the GPU
+# machine and reach them over Tailscale (private). Never expose ComfyUI or
+# Ollama publicly without auth. If no GPU is reachable, set
+# RENDER_PROVIDER=gemini_image and SCENE_PROVIDER=gemini in backend/.env.
+#
+# Usage:
+#   cp ../config/backend.env.example ../backend/.env   # then fill in secrets
+#   docker compose up -d --build
+#   docker compose exec api python manage.py migrate
+#
+# Dev alternative (integration machine): run api+worker locally and expose
+# with `cloudflared tunnel --url http://localhost:8000`.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: placepatch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: placepatch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    profiles: ["local-db"]  # skip when DATABASE_URL points at Tiger Data
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://placepatch:${POSTGRES_PASSWORD}@db:5432/placepatch}
+    volumes:
+      - media:/app/backend/media
+    depends_on:
+      - db
+    command: >
+      sh -c "python backend/manage.py migrate &&
+             gunicorn config.wsgi:application --chdir backend
+               --bind 0.0.0.0:8000 --workers 2 --timeout 120"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://placepatch:${POSTGRES_PASSWORD}@db:5432/placepatch}
+    volumes:
+      - media:/app/backend/media
+    depends_on:
+      - db
+      - api
+    command: ["python", "backend/manage.py", "run_worker"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  media:
+  caddydata:

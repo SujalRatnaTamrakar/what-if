@@ -1,4 +1,4 @@
-"""Pydantic v2 schemas for the PlacePatch agents module (P2).
+"""Pydantic v2 schemas for the WhatIf agents module (P2).
 
 ``model_dump(by_alias=True)`` produces EXACTLY the camelCase JSON in §5.3
 of the master plan. P4 stores ``model_dump(by_alias=True, mode="json")``.

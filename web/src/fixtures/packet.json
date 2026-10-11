@@ -1,1 +1,1 @@
-{"expiresAt":"2026-10-10T20:00:00Z","exportedAt":"2026-10-10T18:45:00Z","supportCountAtExport":2,"url":"https://api.placepatch.example/api/v1/packets/pkt1.pdf?exp=1791662400&sig=FIXTURE"}
+{"expiresAt":"2026-10-10T20:00:00Z","exportedAt":"2026-10-10T18:45:00Z","supportCountAtExport":2,"url":"https://api.whatif.example/api/v1/packets/pkt1.pdf?exp=1791662400&sig=FIXTURE"}

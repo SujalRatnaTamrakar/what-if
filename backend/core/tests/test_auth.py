@@ -23,13 +23,13 @@ def _keypair():
     return key, pub_jwk
 
 
-def _token(key, sub="auth0|tester", aud="https://api.placepatch.dev", exp_in=3600):
+def _token(key, sub="auth0|tester", aud="https://api.whatif.dev", exp_in=3600):
     now = int(time.time())
     return jwt.encode(
         {
             "sub": sub,
             "aud": aud,
-            "iss": "https://placepatch.us.auth0.com/",
+            "iss": "https://whatif.us.auth0.com/",
             "iat": now - 10,
             "exp": now + exp_in,
         },
@@ -46,7 +46,7 @@ def jwt_env(monkeypatch):
     return key
 
 
-@override_settings(AUTH0_DOMAIN="placepatch.us.auth0.com", AUTH0_AUDIENCE="https://api.placepatch.dev")
+@override_settings(AUTH0_DOMAIN="whatif.us.auth0.com", AUTH0_AUDIENCE="https://api.whatif.dev")
 def test_jwt_valid_creates_user(client, jwt_env):
     token = _token(jwt_env)
     resp = client.get("/api/v1/me", HTTP_AUTHORIZATION=f"Bearer {token}")
@@ -56,7 +56,7 @@ def test_jwt_valid_creates_user(client, jwt_env):
     assert body["displayName"].startswith("Neighbor-")
 
 
-@override_settings(AUTH0_DOMAIN="placepatch.us.auth0.com", AUTH0_AUDIENCE="https://api.placepatch.dev")
+@override_settings(AUTH0_DOMAIN="whatif.us.auth0.com", AUTH0_AUDIENCE="https://api.whatif.dev")
 def test_jwt_wrong_audience_rejected(client, jwt_env):
     token = _token(jwt_env, aud="https://evil.example")
     resp = client.get("/api/v1/me", HTTP_AUTHORIZATION=f"Bearer {token}")
@@ -64,7 +64,7 @@ def test_jwt_wrong_audience_rejected(client, jwt_env):
     assert resp.json()["error"]["code"] == "AUTH_REQUIRED"
 
 
-@override_settings(AUTH0_DOMAIN="placepatch.us.auth0.com", AUTH0_AUDIENCE="https://api.placepatch.dev")
+@override_settings(AUTH0_DOMAIN="whatif.us.auth0.com", AUTH0_AUDIENCE="https://api.whatif.dev")
 def test_jwt_expired_rejected(client, jwt_env):
     token = _token(jwt_env, exp_in=-60)
     resp = client.get("/api/v1/me", HTTP_AUTHORIZATION=f"Bearer {token}")

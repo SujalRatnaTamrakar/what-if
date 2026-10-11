@@ -1,1 +1,1 @@
-"""PlacePatch backend — Django project package."""
+"""WhatIf backend — Django project package."""

@@ -10,13 +10,13 @@ Do these in order. Each takes 2–10 minutes. Client IDs are public; **never put
 5. Record the exact model IDs you use in DECISIONS.md (review/scene + image fallback).
 
 ## 2. Auth0 (tenant + 2 apps + API audience)
-1. **signup.auth0.com** → create tenant `placepatch` (region US).
+1. **signup.auth0.com** → create tenant `whatif` (region US).
 2. **Applications → Create Application → Native** (for the mobile app). Copy the **Client ID**.
 3. **Applications → Create Application → Single Page Web Application** (for the later web client). Copy the **Client ID**.
-4. For the Native app: **Settings → Allowed Callback URLs / Logout URLs** — add your Expo redirect, e.g. `placepatch://` plus `exp://` dev variants; save.
-5. **Applications → APIs → Create API** — Identifier: `https://api.placepatch.dev`. Copy that identifier as the audience.
-6. Fill in DECISIONS.md: domain `placepatch.us.auth0.com`, the two client IDs, the audience.
-7. Env wiring: `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` on the backend; `EXPO_PUBLIC_AUTH0_DOMAIN`, `EXPO_PUBLIC_AUTH0_CLIENT_ID`, `EXPO_PUBLIC_AUTH0_AUDIENCE`, `EXPO_PUBLIC_AUTH0_SCHEME=placepatch` on mobile. No secrets needed anywhere for these reads.
+4. For the Native app: **Settings → Allowed Callback URLs / Logout URLs** — add `whatif://auth` for the installed development app; save. Use the exact callback printed by the app. Expo Go is not supported for local OAuth login testing.
+5. **Applications → APIs → Create API** — Identifier: `https://api.whatif.dev`. Copy that identifier as the audience.
+6. Fill in DECISIONS.md: domain `whatif.us.auth0.com`, the two client IDs, the audience.
+7. Env wiring: `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` on the backend; `EXPO_PUBLIC_AUTH0_DOMAIN`, `EXPO_PUBLIC_AUTH0_CLIENT_ID`, `EXPO_PUBLIC_AUTH0_AUDIENCE`, `EXPO_PUBLIC_AUTH0_SCHEME=whatif` on mobile. No secrets needed anywhere for these reads.
 
 ## 3. Tiger Data (or cut it)
 1. **console.tigerdata.com** → free trial (30-day, no card for the basic tier) → create a project + service → copy the **connection string**.

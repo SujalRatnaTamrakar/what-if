@@ -27,7 +27,7 @@ activity. Submit, then stick around through Sunday.
   3. How effective is the team's presentation?
   4. Is there a clear, compelling use case?
 
-## 3-minute pitch outline (PlacePatch)
+## 3-minute pitch outline (WhatIf)
 
 - **0:00–0:45 — Problem.** The bus stop with no shade in Georgia heat.
   Complaints die in group chats because turning one into something a city

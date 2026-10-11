@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = "Run the PlacePatch job worker (DB-backed queue, no Redis/Celery)."
+    help = "Run the WhatIf job worker (DB-backed queue, no Redis/Celery)."
 
     def handle(self, *args, **options):
         poll = settings.WORKER_POLL_SECONDS

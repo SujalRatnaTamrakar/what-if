@@ -1,4 +1,4 @@
-# PlacePatch — Devpost draft
+# WhatIf — Devpost draft
 
 > Status: DRAFT — fill every `[bracket]` before submitting. Confirm the three
 > side-challenge claims against the actual demo: claim only features shown
@@ -9,7 +9,7 @@
 
 ## Project name
 
-**PlacePatch**
+**WhatIf**
 
 ## Tagline
 
@@ -17,11 +17,11 @@ Turn a photo of a local place into a clearly labeled AI improvement concept, a c
 
 ## Inspiration
 
-Every neighborhood has a spot everyone complains about — the bus stop with no shade in the Georgia heat, the crosswalk nobody can see, the bench that's falling apart. People vent about these places in group chats and on social media, and then nothing happens, because turning a complaint into something a city official can act on takes effort most people don't have. We built PlacePatch so the photo you already took *is* the start of a real, honest proposal.
+Every neighborhood has a spot everyone complains about — the bus stop with no shade in the Georgia heat, the crosswalk nobody can see, the bench that's falling apart. People vent about these places in group chats and on social media, and then nothing happens, because turning a complaint into something a city official can act on takes effort most people don't have. We built WhatIf so the photo you already took *is* the start of a real, honest proposal.
 
 ## What it does
 
-PlacePatch runs one full loop:
+WhatIf runs one full loop:
 
 1. **Sign in** (Auth0) → take or upload a photo of a place, add the location, the problem, and photo consent.
 2. **AI reads the scene** and suggests bounded improvements (Gemini / Ollama; MVP category: `shade`).
@@ -59,7 +59,7 @@ Honesty is the product, not a footnote: every concept and packet is labeled **"A
 - Constraints are features: "shade only" for the MVP and "claim only what the demo shows" kept us shippable.
 - Users trust AI civic tools exactly as much as the tools are honest with them — so we designed the honesty in first.
 
-## What's next for PlacePatch
+## What's next for WhatIf
 
 - More intervention categories beyond `shade` (the contract already allows them).
 - The planned web companion (same backend, no changes needed).

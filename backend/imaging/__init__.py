@@ -1,4 +1,4 @@
-"""PlacePatch image pipeline — frozen public interface (§11.2).
+"""WhatIf image pipeline — frozen public interface (§11.2).
 
 Do not rename anything here without going through §15 change control.
 ``RENDER_PROVIDER`` env selects the provider (default ``fake``): one of
@@ -152,7 +152,7 @@ def render_edit(
     work_img, work_size = resize_to_work_edge(source, work_edge)
     mask = Image.open(mask_path).convert("L").resize(work_size, Image.NEAREST)
 
-    tmpdir = Path(tempfile.mkdtemp(prefix="placepatch_render_"))
+    tmpdir = Path(tempfile.mkdtemp(prefix="whatif_render_"))
     work_source = tmpdir / "work_source.png"
     work_mask = tmpdir / "work_mask.png"
     work_img.save(work_source)

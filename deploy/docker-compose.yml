@@ -1,4 +1,4 @@
-# PlacePatch deploy — final hosting on a Vultr VM (see §9.5 step 8).
+# WhatIf deploy — final hosting on a Vultr VM (see §9.5 step 8).
 #
 # Services:
 #   db      Postgres 16 (only when NOT using Tiger Data Cloud)
@@ -24,9 +24,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: placepatch
+      POSTGRES_USER: ${POSTGRES_USER:-whatif}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-      POSTGRES_DB: placepatch
+      POSTGRES_DB: ${POSTGRES_DB:-whatif}
     volumes:
       - pgdata:/var/lib/postgresql/data
     profiles: ["local-db"]  # skip when DATABASE_URL points at Tiger Data
@@ -39,7 +39,7 @@ services:
     env_file:
       - ../backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://placepatch:${POSTGRES_PASSWORD}@db:5432/placepatch}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-whatif}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-whatif}}
     volumes:
       - media:/app/backend/media
     depends_on:
@@ -57,7 +57,7 @@ services:
     env_file:
       - ../backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://placepatch:${POSTGRES_PASSWORD}@db:5432/placepatch}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-whatif}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-whatif}}
     volumes:
       - media:/app/backend/media
     depends_on:

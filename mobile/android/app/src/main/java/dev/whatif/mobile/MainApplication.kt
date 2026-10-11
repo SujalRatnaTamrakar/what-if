@@ -1,4 +1,4 @@
-package dev.placepatch.mobile
+package dev.whatif.mobile
 
 import android.app.Application
 import android.content.res.Configuration

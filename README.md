@@ -1,6 +1,6 @@
-# PlacePatch
+# WhatIf
 
-**PlacePatch** turns a photo of a local place into a clearly labeled AI improvement concept, a community proposal people can support, and a downloadable request packet.
+**WhatIf** turns a photo of a local place into a clearly labeled AI improvement concept, a community proposal people can support, and a downloadable request packet.
 
 **Full loop:** sign in → take/upload photo → enter place + problem + consent → AI reads the scene and suggests changes → user picks one → user brushes the area to edit → AI generates the concept → AI review flags issues → user edits wording and approves → publish → others support (one each) → export a PDF packet.
 
@@ -38,6 +38,27 @@ mobile/          Expo app exported from Rork             (P1)
 web/             (later) Vite app                        (P1)
 deploy/          docker-compose.yml, Caddyfile, Dockerfile (P4)
 ```
+
+## Upgrading the app name to WhatIf
+
+The mobile app uses the `whatif` slug and URL scheme and the native package
+`dev.whatif.mobile`. Add `whatif://auth` to the mobile Auth0 application's Allowed
+Callback URLs and Allowed Logout URLs, then rebuild/install the Android app:
+
+```powershell
+cd mobile
+npx.cmd expo run:android --device --no-bundler
+npx.cmd expo start --dev-client --tunnel --clear
+```
+
+Open the installed WhatIf development app. Renaming the application in Auth0
+does not change its API identifier: keep the existing domain, client ID, and
+audience in local configuration. The backend and mobile audience values must
+match. Existing database connections and signing secrets are also retained.
+
+For an existing Docker database volume, set `POSTGRES_USER` and `POSTGRES_DB`
+to its original account and database names before starting Compose. New local
+databases default to `whatif`; do not recreate an existing volume for the rename.
 
 ## Run the backend (dev)
 

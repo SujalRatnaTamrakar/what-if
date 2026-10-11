@@ -1,4 +1,4 @@
-"""PlacePatch AI agents module (P2) — §10 of the master plan.
+"""WhatIf AI agents module (P2) — §10 of the master plan.
 
 Public interface (frozen — see §10.2):
     analyze_scene(image_path, problem_text, place_label, category="shade") -> Scene

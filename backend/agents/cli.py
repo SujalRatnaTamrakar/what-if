@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PlacePatch agents CLI (§10.6).
+"""WhatIf agents CLI (§10.6).
 
 Run from the repo root:
     python -m backend.agents.cli check

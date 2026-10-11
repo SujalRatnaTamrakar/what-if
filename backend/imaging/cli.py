@@ -30,7 +30,7 @@ from PIL import Image, ImageDraw
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]  # backend/imaging/cli.py -> placepatch/
+    return Path(__file__).resolve().parents[2]  # backend/imaging/cli.py -> whatif/
 
 
 def _make_edit_prompt(text: str):
@@ -101,7 +101,7 @@ def cmd_render(args) -> int:
 def cmd_regress(args) -> int:
     from imaging import outside_mask_change, render_edit
 
-    tmpdir = Path(tempfile.mkdtemp(prefix="placepatch_regress_"))
+    tmpdir = Path(tempfile.mkdtemp(prefix="whatif_regress_"))
     demo_src = _repo_root() / "shared" / "demo" / "bus_stop.jpg"
     demo_mask = _repo_root() / "shared" / "demo" / "bus_stop_mask.png"
     if demo_src.exists() and demo_mask.exists():

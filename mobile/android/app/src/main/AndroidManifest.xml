@@ -25,8 +25,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="placepatch"/>
-        <data android:scheme="exp+placepatch"/>
+        <data android:scheme="whatif"/>
+        <data android:scheme="exp+whatif"/>
       </intent-filter>
     </activity>
   </application>

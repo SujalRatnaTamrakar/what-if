@@ -1,4 +1,4 @@
-"""PlacePatch Django settings.
+"""WhatIf Django settings.
 
 Single config reader for the backend (§6.1 of the master plan).
 Every value comes from the environment (backend/.env in dev).
@@ -86,7 +86,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [o.strip() for o in env("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_DEV", False) and DEBUG
 
-# --- PlacePatch knobs (§6.1) ---
+# --- WhatIf knobs (§6.1) ---
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 APP_PUBLIC_WEB_URL = env("APP_PUBLIC_WEB_URL", "")
 MEDIA_ROOT = Path(env("MEDIA_ROOT", str(BASE_DIR / "media")))
@@ -94,8 +94,8 @@ MEDIA_URL_TTL_SECONDS = env_int("MEDIA_URL_TTL_SECONDS", 3600)
 MAX_UPLOAD_BYTES = env_int("MAX_UPLOAD_BYTES", 15728640)
 MAX_IMAGE_EDGE = env_int("MAX_IMAGE_EDGE", 2048)
 
-AUTH0_DOMAIN = env("AUTH0_DOMAIN", "placepatch.us.auth0.com")
-AUTH0_AUDIENCE = env("AUTH0_AUDIENCE", "https://api.placepatch.dev")
+AUTH0_DOMAIN = env("AUTH0_DOMAIN", "whatif.us.auth0.com")
+AUTH0_AUDIENCE = env("AUTH0_AUDIENCE", "https://api.whatif.dev")
 AUTH_DEV_BYPASS = env_bool("AUTH_DEV_BYPASS", False)
 
 JOB_LEASE_SECONDS = env_int("JOB_LEASE_SECONDS", 300)

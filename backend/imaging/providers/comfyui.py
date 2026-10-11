@@ -37,7 +37,7 @@ def _workflow_path() -> Path:
     raw = os.environ.get("COMFYUI_WORKFLOW", "workflows/shade_inpaint_v1.api.json")
     p = Path(raw)
     if not p.is_absolute():
-        repo_root = Path(__file__).resolve().parents[3]  # .../placepatch
+        repo_root = Path(__file__).resolve().parents[3]  # .../whatif
         cand = repo_root / p
         p = cand if cand.exists() else Path.cwd() / p
     return p
@@ -110,8 +110,8 @@ def render_at_work_size(
 
     try:
         try:
-            src_name = _upload(client, work_source, "placepatch_source.png")
-            mask_name = _upload(client, work_mask, "placepatch_mask.png")
+            src_name = _upload(client, work_source, "whatif_source.png")
+            mask_name = _upload(client, work_mask, "whatif_mask.png")
         except httpx.ConnectError as e:
             raise ProviderUnavailable(f"cannot reach ComfyUI at {base}: {e}")
         except httpx.TimeoutException as e:

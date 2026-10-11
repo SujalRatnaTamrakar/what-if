@@ -1,4 +1,4 @@
-# PlacePatch — demo video script (target 2:30, hard max 3:00)
+# WhatIf — demo video script (target 2:30, hard max 3:00)
 
 > Public video (unlisted YouTube is fine). Shoot in one quiet room; record the
 > phone screen at 1080p. If any step runs in fixture mode, the permanent
@@ -18,7 +18,7 @@
 
 ### 0:12–0:30 — Capture + consent
 - **Show:** phone screen — take/upload the photo, enter place + problem ("No shade at this bus stop"), tick the photo-consent box, submit.
-- **VO:** "PlacePatch turns that photo into a proposal. You document the place, the problem, and your consent to use the photo — that's the whole input."
+- **VO:** "WhatIf turns that photo into a proposal. You document the place, the problem, and your consent to use the photo — that's the whole input."
 
 ### 0:30–0:50 — AI reads the scene
 - **Show:** suggestion cards appear — "Freestanding shade canopy over the bench", etc. Tap one.
@@ -46,7 +46,7 @@
 
 ### 2:25–2:35 — Close
 - **Show:** app icon / team at the table, Hacklanta logo if handy.
-- **VO:** "PlacePatch — from a photo to a proposal. Built at Hacklanta 2026 for the Cox Social Good track, with Gemini, Auth0, and Tiger Data."
+- **VO:** "WhatIf — from a photo to a proposal. Built at Hacklanta 2026 for the Cox Social Good track, with Gemini, Auth0, and Tiger Data."
 
 ## Shoot checklist
 

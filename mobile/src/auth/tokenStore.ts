@@ -13,7 +13,7 @@ export interface TokenSet {
   expiresAt: number;
 }
 
-const KEY = "placepatch.tokens";
+const KEY = "whatif.tokens";
 let memoryTokens: TokenSet | null = null;
 const isWeb = Platform.OS === "web";
 

@@ -1,4 +1,4 @@
-"""PlacePatch API routes — /api/v1, NO trailing slash (§5.1)."""
+"""WhatIf API routes — /api/v1, NO trailing slash (§5.1)."""
 from django.urls import path
 
 from core.views import config as v_config

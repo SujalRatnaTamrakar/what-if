@@ -101,7 +101,7 @@ def _imaging_render(source_path: Path, mask_path: Path, edit_prompt, timeout_s: 
         # Inline fake: copy the source as the "concept" with honest metadata.
         from backend.common.errors import ProviderError  # noqa  (exists per AGENTS.md)
 
-        out = Path("/tmp") / f"placepatch_fake_{uuid.uuid4().hex}.jpg"
+        out = Path("/tmp") / f"whatif_fake_{uuid.uuid4().hex}.jpg"
         shutil.copyfile(source_path, out)
         from PIL import Image
 

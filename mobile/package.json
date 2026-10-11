@@ -39,7 +39,7 @@
     "@expo/ngrok": "^4.1.0"
   },
   "main": "expo-router/entry",
-  "name": "placepatch-mobile",
+  "name": "whatif-mobile",
   "private": true,
   "scripts": {
     "android": "expo run:android",

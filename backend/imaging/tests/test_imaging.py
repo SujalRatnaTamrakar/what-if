@@ -39,7 +39,7 @@ def make_triple(size=(640, 480)):
     ImageDraw.Draw(mask).rectangle(
         [w // 4, h // 4, 3 * w // 4, 3 * h // 4], fill=255
     )
-    d = tempfile.mkdtemp(prefix="placepatch_test_")
+    d = tempfile.mkdtemp(prefix="whatif_test_")
     sp, mp = Path(d) / "src.png", Path(d) / "mask.png"
     src.save(sp)
     mask.save(mp)
@@ -101,7 +101,7 @@ def test_mask_prep_dilate_and_feather():
 def test_outside_mask_change_zero_for_identical():
     sp, _ = make_triple()
     assert outside_mask_change(sp, sp, sp) == 0.0 or True  # mask==src edge case
-    d = tempfile.mkdtemp(prefix="placepatch_test_")
+    d = tempfile.mkdtemp(prefix="whatif_test_")
     blank = Path(d) / "blank.png"
     Image.new("L", (64, 64), 0).save(blank)
     assert outside_mask_change(sp, sp, blank) == 0.0

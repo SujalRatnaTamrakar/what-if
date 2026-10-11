@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
-  title: PlacePatch API
+  title: WhatIf API
   version: "1"
   description: |
-    PlacePatch turns a photo of a local place into a clearly labeled AI improvement
+    WhatIf turns a photo of a local place into a clearly labeled AI improvement
     concept, a community proposal people can support, and a downloadable request packet.
     Single source of truth: docs/MASTER_PLAN.md §5. Do not rename fields, routes,
     enum values or error codes without the §15 change-control process.
 servers:
-  - url: https://api.placepatch.example/api/v1
+  - url: https://api.whatif.example/api/v1
     description: Placeholder. Real base URL comes from config (PUBLIC_BASE_URL + /api/v1).
 security:
   - bearerAuth: []

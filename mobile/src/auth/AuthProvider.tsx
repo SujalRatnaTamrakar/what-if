@@ -74,6 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     path: "auth",
   });
 
+  useEffect(() => {
+    if (__DEV__) console.info("Auth0 callback URL:", redirectUri);
+  }, [redirectUri]);
+
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: config.auth0ClientId,

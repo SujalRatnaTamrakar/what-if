@@ -1,0 +1,11 @@
+{
+  "id": "j_generate",
+  "postId": "p_draft",
+  "kind": "generate",
+  "status": "queued",
+  "stage": "queued",
+  "attempt": 0,
+  "createdAt": "2026-10-10T18:20:00Z",
+  "updatedAt": "2026-10-10T18:20:00Z",
+  "error": null
+}

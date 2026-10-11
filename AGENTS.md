@@ -1,4 +1,4 @@
-# AGENTS.md — rules for every AI agent on PlacePatch
+# AGENTS.md — rules for every AI agent on WhatIf
 
 The single source of truth is `docs/MASTER_PLAN.md`. §5 (the contract) is law.
 

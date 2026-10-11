@@ -1,7 +1,13 @@
 /**
+<<<<<<< Updated upstream
  * mobile/src/components/AppHeader.tsx — brand header: sprout mark +
  * "WhatIf" wordmark (green "What", orange "If") + tagline; search and
  * "how it works" actions on the right.
+=======
+ * mobile/src/components/AppHeader.tsx — mockup header: sprout logo +
+ * "WhatIf" wordmark (green "What", orange "If"), tagline
+ * "People. Places. Brighter tomorrows.", search + kebab icons right.
+>>>>>>> Stashed changes
  */
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -20,10 +26,16 @@ export function AppHeader({ onSearch, title }: Props) {
     <View style={styles.wrap}>
       <SproutIcon size={34} />
       <View style={styles.titleWrap}>
+<<<<<<< Updated upstream
         <Text style={styles.wordmark} accessibilityRole="header">
           <Text style={styles.place}>What</Text>
           <Text style={styles.patch}>If</Text>
           {title ? <Text style={styles.section}>  {title}</Text> : null}
+=======
+        <Text style={styles.wordmark}>
+          <Text style={styles.what}>What</Text>
+          <Text style={styles.if}>If</Text>
+>>>>>>> Stashed changes
         </Text>
         <Text style={styles.tagline}>People. Places. Brighter tomorrows.</Text>
       </View>
@@ -47,6 +59,7 @@ export function AppHeader({ onSearch, title }: Props) {
 }
 
 const styles = StyleSheet.create({
+<<<<<<< Updated upstream
   wrap: { flexDirection: "row", alignItems: "center", paddingHorizontal: 2, paddingBottom: 4 },
   titleWrap: { flex: 1, marginLeft: 8 },
   wordmark: { fontSize: 25, fontWeight: "700", letterSpacing: -0.6 },
@@ -54,6 +67,19 @@ const styles = StyleSheet.create({
   patch: { color: theme.colors.orange },
   section: { color: theme.colors.faint, fontSize: 16, fontWeight: "500" },
   tagline: { fontSize: 12, color: theme.colors.muted, marginTop: -2 },
+=======
+  wrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    paddingBottom: 12,
+  },
+  titleWrap: { flex: 1, marginLeft: 10 },
+  wordmark: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  what: { color: theme.colors.accent },
+  if: { color: theme.colors.orange },
+  tagline: { fontSize: 12, color: theme.colors.muted, marginTop: 1 },
+>>>>>>> Stashed changes
   icons: { flexDirection: "row", alignItems: "center" },
   iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
 });

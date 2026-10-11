@@ -35,7 +35,7 @@ def make_triple(size=(320, 240)):
     src = Image.new("RGB", size, (90, 120, 160))
     mask = Image.new("L", size, 0)
     ImageDraw.Draw(mask).rectangle([w // 4, h // 4, 3 * w // 4, 3 * h // 4], fill=255)
-    d = tempfile.mkdtemp(prefix="placepatch_chain_test_")
+    d = tempfile.mkdtemp(prefix="whatif_chain_test_")
     sp, mp = Path(d) / "src.png", Path(d) / "mask.png"
     src.save(sp)
     mask.save(mp)

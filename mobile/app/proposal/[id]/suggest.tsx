@@ -26,7 +26,7 @@ import { Dock } from "../../../src/ui/Dock";
 import { useInvalidateProposal, useProposal } from "../../../src/hooks/useProposal";
 import { useJobPolling } from "../../../src/hooks/useJobPolling";
 import { useToast } from "../../../src/ui/Toast";
-import { shadows, theme } from "../../../src/theme";
+import { fonts, shadows, theme } from "../../../src/theme";
 import type { JobStage } from "../../../src/api/types";
 
 const SCENE_STAGES: JobStage[] = ["queued", "analyze", "done"];
@@ -58,8 +58,10 @@ export default function SuggestScreen() {
   }, [job?.status, id, invalidateProposal]);
 
   useEffect(() => {
+    // Saved choice wins; otherwise pre-select option 1, which answers the resident's own concern.
     if (!picked && proposal?.selectedOptionId) setPicked(proposal.selectedOptionId);
-  }, [proposal?.selectedOptionId, picked]);
+    else if (!picked && proposal?.scene?.options[0]) setPicked(proposal.scene.options[0].id);
+  }, [proposal?.selectedOptionId, proposal?.scene, picked]);
 
   const retryAnalyze = async () => {
     if (!proposal) return;
@@ -192,6 +194,15 @@ export default function SuggestScreen() {
             </Animated.View>
 
             <Text style={styles.pickHead}>Pick one change</Text>
+            {proposal.problemText ? (
+              <View style={styles.concern}>
+                <Text style={styles.concernMark}>“</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.concernText}>{proposal.problemText}</Text>
+                  <Text style={styles.concernBy}>Your concern — the first idea answers it</Text>
+                </View>
+              </View>
+            ) : null}
             {scene.options.map((o, i) => {
               const active = picked === o.id;
               return (
@@ -207,6 +218,11 @@ export default function SuggestScreen() {
                       {active ? <CheckIcon size={14} color="#fff" strokeWidth={3} /> : null}
                     </View>
                     <View style={{ flex: 1 }}>
+                      <View style={[styles.optBadge, i === 0 ? styles.optBadgeYours : null]}>
+                        <Text style={[styles.optBadgeText, i === 0 ? styles.optBadgeTextYours : null]}>
+                          {i === 0 ? "Answers your concern" : "Another idea"}
+                        </Text>
+                      </View>
                       <Text style={styles.optTitle}>{o.title}</Text>
                       <Text style={styles.optDesc}>{o.description}</Text>
                       <View style={styles.hintRow}>
@@ -263,6 +279,14 @@ const styles = StyleSheet.create({
   keepRow: { flexDirection: "row", gap: 8, marginTop: 14, alignItems: "flex-start" },
   keepText: { flex: 1, fontSize: 13, color: theme.colors.muted, lineHeight: 19 },
   keepStrong: { color: theme.colors.text, fontWeight: "600" },
+  concern: { flexDirection: "row", gap: 10, backgroundColor: theme.colors.paperDeep, borderRadius: theme.radius.l, padding: 14, paddingLeft: 12, marginBottom: 14 },
+  concernMark: { fontFamily: fonts.displayBlackItalic, fontSize: 40, lineHeight: 40, color: theme.colors.orange, marginTop: -4 },
+  concernText: { fontFamily: fonts.displayItalic, fontSize: 17, lineHeight: 24, color: theme.colors.text },
+  concernBy: { fontSize: 12, color: theme.colors.muted, marginTop: 6, fontWeight: "500" },
+  optBadge: { alignSelf: "flex-start", backgroundColor: theme.colors.paperDeep, borderRadius: 999, paddingLeft: 9, paddingRight: 9, paddingTop: 3, paddingBottom: 3, marginBottom: 6 },
+  optBadgeYours: { backgroundColor: theme.colors.accentSoft },
+  optBadgeText: { fontSize: 11, fontWeight: "700", color: theme.colors.muted, letterSpacing: 0.2 },
+  optBadgeTextYours: { color: theme.colors.accentDark },
   pickHead: { fontSize: 17, fontWeight: "700", color: theme.colors.text, marginTop: 26, marginBottom: 10 },
   option: {
     flexDirection: "row",

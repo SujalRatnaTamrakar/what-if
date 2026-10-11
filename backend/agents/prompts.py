@@ -11,14 +11,11 @@ _PROMPT_DIR = Path(__file__).resolve().parents[2] / "docs" / "prompts"
 
 _FALLBACKS = {
     "analyze_scene": (
-        "You are an urban-design assistant. Describe only what is visible. "
-        "Never guess ownership, measurements, laws or costs. List uncertainties "
-        "as questions. Choose 1-2 interventions ONLY from this catalog:\n"
+        "You are an urban-design assistant helping a resident turn THEIR concern into a picture of a small, realistic change. The resident's problem and wish come first: they know this place, you only see one photo. Describe only what is visible. Never guess ownership, measurements, laws or costs. List uncertainties as questions.\n"
+        "Return 1-2 options, choosing ids ONLY from this catalog:\n"
         "{catalog}\n"
-        "For each, write an editGoal describing one physical addition in the "
-        "visible scene, a maskHint telling the user where to brush, and a polite "
-        "2-4 sentence requestDraft. List visible elements that must be preserved. "
-        "Output JSON matching the schema."
+        "Option 1 MUST directly answer the resident's stated problem, in their own terms: if they asked for a specific physical change (e.g. a bench, a shelter, a crosswalk, a tree), use that change (use id user_request unless a catalog entry is exactly what they asked for), and say in its description how it fixes the problem they described. Only if their request is impossible, unsafe or not visible-scene related, pick the closest catalog change and explain why in the description. Option 2 (optional) is a different idea that also addresses their problem. Never ignore or replace the resident's request with your own preference.\n"
+        "For each option, write an editGoal describing one physical addition in the visible scene, a maskHint telling the user where to brush, and a polite 2-4 sentence requestDraft that restates the resident's concern. List visible elements that must be preserved. Output JSON matching the schema."
     ),
     "review_concept": (
         "Compare BEFORE, AFTER and MASK images. Report only problems you can see: "

@@ -18,7 +18,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from backend.agents import prompts
-from backend.agents.catalog import CATALOG
+from backend.agents.catalog import CATALOG, USER_REQUEST_ID
 from backend.agents.providers import get_provider
 from backend.agents.schemas import (
     EditPrompt,
@@ -135,7 +135,7 @@ def analyze_scene(image_path: Path, problem_text: str, place_label: str,
     system = prompts.load_prompt("analyze_scene").format(catalog=catalog_text)
     user = (
         f"Place: {place_label}\n"
-        f"Problem: {problem_text}\n"
+        f"Resident's concern (highest priority — option 1 must address it): {problem_text}\n"
         f"Category: {category}\n\n"
         "Describe only what is visible in the attached photo. "
         "Choose 1-2 interventions ONLY from the catalog above. Return JSON only."
@@ -150,6 +150,8 @@ def analyze_scene(image_path: Path, problem_text: str, place_label: str,
                 f"Model invented option id {opt.id!r} outside the catalog"
             )
         opt.category = category
+    # The resident's own request always leads; the model's ideas follow.
+    scene.options.sort(key=lambda o: o.id != USER_REQUEST_ID)
     # Stamp real provenance (never trust the model's metadata fields).
     scene.provider = provider.name
     scene.model = provider.model
@@ -159,7 +161,8 @@ def analyze_scene(image_path: Path, problem_text: str, place_label: str,
 
 def build_edit_prompt(scene: Scene, option: Option, problem_text: str) -> EditPrompt:
     """Deterministic template (§10.5). No LLM call."""
-    base_goal = next(
+    # The resident's own request has no canned goal: render what they asked for.
+    base_goal = option.title if option.id == USER_REQUEST_ID else next(
         (e["base_goal"] for e in CATALOG.get(option.category, [])
          if e["id"] == option.id),
         option.title,

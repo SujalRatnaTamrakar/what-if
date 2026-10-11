@@ -128,6 +128,7 @@ def test_draft_rejects_long_title():
 def test_catalog_ids():
     assert set(CATALOG) == {"shade"}
     assert [e["id"] for e in CATALOG["shade"]] == [
+        "user_request",
         "shade_canopy",
         "shade_tree",
         "shade_sail",

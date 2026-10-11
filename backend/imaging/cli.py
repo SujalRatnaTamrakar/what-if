@@ -70,6 +70,14 @@ def main(argv=None):
     for a in ("--source", "--concept", "--mask"):
         df.add_argument(a, required=True)
 
+    b = sub.add_parser("bench")
+    b.add_argument("--source", default=str(ROOT / "shared/demo/bus_stop.jpg"))
+    b.add_argument("--mask", default=str(ROOT / "shared/demo/bus_stop_mask.png"))
+    b.add_argument("--prompt", default="a flat metal roof canopy on slim steel posts above the bench")
+    b.add_argument("--provider"); b.add_argument("--runs", type=int, default=5)
+    b.add_argument("--parallel", type=int, default=1, help="run N renders at the same time (queue test)")
+    b.add_argument("--timeout", type=int, default=240)
+
     sub.add_parser("check")
     rg = sub.add_parser("regress")
     rg.add_argument("--provider"); rg.add_argument("--timeout", type=int, default=240)
@@ -92,6 +100,21 @@ def main(argv=None):
         mk.save(a.out); print("wrote", a.out, (w, h))
     elif a.cmd == "diff":
         print(round(outside_mask_change(Path(a.source), Path(a.concept), Path(a.mask)), 5))
+    elif a.cmd == "bench":
+        from concurrent.futures import ThreadPoolExecutor
+        import statistics
+
+        def one(_):
+            t = time.time()
+            d = _render(a.source, a.mask, a.prompt, a.provider, timeout=a.timeout)
+            return d["duration_ms"], round(time.time() - t, 1), d["outsideMaskChange"], d["provider"]
+
+        with ThreadPoolExecutor(max_workers=max(a.parallel, 1)) as ex:
+            res = list(ex.map(one, range(a.runs)))
+        ms = [r[0] for r in res]
+        print(json.dumps({"provider": res[0][3], "runs": a.runs, "parallel": a.parallel,
+                          "p50_ms": int(statistics.median(ms)), "max_ms": max(ms), "min_ms": min(ms),
+                          "worst_outside_change": max(r[2] for r in res)}, indent=2))
     elif a.cmd == "check":
         import requests
         base = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188").rstrip("/")

@@ -117,3 +117,48 @@ def test_comfy_unreachable(triple, monkeypatch):
     monkeypatch.setattr(requests, "request", boom)
     with pytest.raises(ProviderUnavailable):
         render_edit(*triple, PROMPT)
+
+
+# ---- automatic fallback ----
+class _Stub:
+    def __init__(self, exc=None, provider="stub"):
+        self.exc, self.provider = exc, provider
+
+    def edit(self, source, mask, prompt, *, seed, timeout_s):
+        if self.exc:
+            raise self.exc
+        from imaging.types import ProviderOutput
+        return ProviderOutput(Image.new("RGB", source.size, (9, 9, 9)), self.provider, "stub-model", None, "stub_v1")
+
+
+def _wire(monkeypatch, primary, fallback, fb_name="xai_image"):
+    import imaging
+    monkeypatch.setenv("RENDER_PROVIDER", "comfyui"); monkeypatch.setenv("RENDER_WORK_EDGE", "64")
+    if fb_name:
+        monkeypatch.setenv("RENDER_FALLBACK_PROVIDER", fb_name)
+    monkeypatch.setattr(imaging, "get_renderer", lambda name=None: primary if name is None else fallback)
+
+
+def test_fallback_used_and_reports_real_provider(triple, monkeypatch):
+    _wire(monkeypatch, _Stub(ProviderUnavailable("down")), _Stub(provider="xai_image"))
+    r = render_edit(*triple, PROMPT)
+    assert r.provider == "xai_image" and r.model == "stub-model"
+
+
+def test_no_fallback_configured_raises(triple, monkeypatch):
+    _wire(monkeypatch, _Stub(ProviderTimeout("slow")), _Stub(), fb_name=None)
+    monkeypatch.delenv("RENDER_FALLBACK_PROVIDER", raising=False)
+    with pytest.raises(ProviderTimeout):
+        render_edit(*triple, PROMPT)
+
+
+def test_fake_is_never_a_fallback(triple, monkeypatch):
+    _wire(monkeypatch, _Stub(ProviderUnavailable("down")), _Stub(provider="fake"), fb_name="fake")
+    with pytest.raises(ProviderUnavailable):
+        render_edit(*triple, PROMPT)
+
+
+def test_fallback_failure_is_raised(triple, monkeypatch):
+    _wire(monkeypatch, _Stub(ProviderUnavailable("down")), _Stub(RenderFailed("no image returned")))
+    with pytest.raises(RenderFailed, match="no image returned"):
+        render_edit(*triple, PROMPT)

@@ -1,5 +1,6 @@
 """P3 image pipeline. Public interface (frozen, master plan section 11.2):
 render_edit, outside_mask_change, RenderResult."""
+import logging
 import os
 import random
 import tempfile
@@ -9,12 +10,27 @@ from pathlib import Path
 from PIL import Image
 
 from . import masks as _masks
+from ._errors import ProviderTimeout, ProviderUnavailable, RenderFailed
 from .composite import composite, work_size
 from .metrics import outside_mask_change
 from .providers import get_renderer
 from .types import RenderResult
 
 __all__ = ["render_edit", "outside_mask_change", "RenderResult"]
+log = logging.getLogger("imaging")
+
+
+def _fallback_name():
+    """Optional RENDER_FALLBACK_PROVIDER. 'fake' is never allowed as a fallback: a fake image must not
+    silently replace a real one (the app only shows the fake banner when RENDER_PROVIDER=fake)."""
+    primary = os.environ.get("RENDER_PROVIDER", "fake")
+    fb = os.environ.get("RENDER_FALLBACK_PROVIDER", "").strip()
+    if not fb or fb == primary:
+        return None
+    if fb == "fake":
+        log.warning("RENDER_FALLBACK_PROVIDER=fake is ignored")
+        return None
+    return fb
 
 
 def render_edit(source_path: Path, mask_path: Path, prompt, *, seed: "int | None" = None,
@@ -32,7 +48,16 @@ def render_edit(source_path: Path, mask_path: Path, prompt, *, seed: "int | None
     mask_w = mask.resize(ws, Image.NEAREST).point(lambda v: 255 if v >= 128 else 0)
     hard, soft = _masks.prepare(mask_w, dilate_px=8, feather_px=feather)
 
-    out = get_renderer().edit(src_w, hard, prompt, seed=seed, timeout_s=timeout_s)
+    try:
+        out = get_renderer().edit(src_w, hard, prompt, seed=seed, timeout_s=timeout_s)
+    except (ProviderUnavailable, ProviderTimeout, RenderFailed) as err:
+        fb = _fallback_name()
+        if not fb:
+            raise
+        log.warning("render provider failed (%s: %s); retrying once with fallback '%s'", type(err).__name__, err, fb)
+        fb_timeout = int(os.environ.get("RENDER_FALLBACK_TIMEOUT_SECONDS", "60"))
+        # The result reports the provider that ACTUALLY ran (honest metadata).
+        out = get_renderer(fb).edit(src_w, hard, prompt, seed=seed, timeout_s=fb_timeout)
 
     edited = out.image.convert("RGB").resize(src.size, Image.LANCZOS)
     final = composite(src, edited, soft.resize(src.size, Image.BILINEAR))

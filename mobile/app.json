@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 {
   "expo": {
     "android": {
@@ -54,6 +53,3 @@
     "description": "WhatIf \u2014 photograph a place, brush the change, and let AI imagine it. Rally neighbors with a before/after."
   }
 }
-=======
-{"expo":{"android":{"adaptiveIcon":{"backgroundColor":"#ffffff"},"package":"dev.whatif.mobile"},"ios":{"bundleIdentifier":"dev.whatif.mobile","supportsTablet":true},"name":"WhatIf","newArchEnabled":true,"orientation":"portrait","plugins":["expo-router"],"scheme":"whatif","slug":"whatif","userInterfaceStyle":"light","version":"1.0.0","web":{"bundler":"metro"}}}
->>>>>>> Stashed changes

@@ -1,0 +1,267 @@
+/*
+ * web/src/styles.css — base layer that makes DOM boxes behave like the
+ * mobile app's React Native views (flex column, no shrink, border-box), plus
+ * the shared motion keyframes standing in for Reanimated entering animations.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: #f6f1e7;
+  color: #1a2320;
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+svg {
+  flex-shrink: 0;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------- primitives */
+.v {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  flex-shrink: 0;
+  min-width: 0;
+  border: 0 solid transparent;
+}
+
+.t {
+  display: block;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 0 solid transparent;
+}
+.t .t {
+  display: inline;
+}
+
+.scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar,
+.hscroll::-webkit-scrollbar {
+  display: none;
+}
+.hscroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.press {
+  appearance: none;
+  background: none;
+  border: 0 solid transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: opacity 120ms ease, transform 160ms cubic-bezier(0.2, 0.9, 0.3, 1.3), background-color 160ms ease;
+}
+.press:disabled {
+  cursor: default;
+}
+.press:focus-visible,
+.focusable:focus-visible {
+  outline: 3px solid #e8a33d;
+  outline-offset: 2px;
+}
+.press-opacity:active:not(:disabled) {
+  opacity: 0.75;
+}
+.press-soft:active:not(:disabled) {
+  opacity: 0.88;
+}
+.press-scale:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.press-scale-lg:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.press-tile:active:not(:disabled) {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+.press-bg:active:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+@media (hover: hover) {
+  .press-opacity:hover:not(:disabled),
+  .press-soft:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  .press-bg:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+  .press-scale:hover:not(:disabled) {
+    filter: brightness(1.04);
+  }
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #9aa095;
+}
+
+/* ---------------------------------------------------------------- motion */
+@keyframes wi-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes wi-fade-in-down {
+  from { opacity: 0; transform: translateY(-18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wi-fade-in-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wi-zoom-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes wi-pulse {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+@keyframes wi-dot-pulse {
+  from { opacity: 0.4; transform: scale(0.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes wi-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes wi-sweep {
+  from { top: -60px; }
+  to { top: calc(100% - 60px); }
+}
+@keyframes wi-pill {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+@keyframes wi-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+@keyframes wi-toast-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wi-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes wi-splash {
+  0% { transform: scale(1); }
+  58% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes wi-splash-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.anim-fade-in { animation: wi-fade-in 300ms ease both; }
+.anim-fade-in-down { animation: wi-fade-in-down 520ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+.anim-fade-in-up { animation: wi-fade-in-up 520ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+.anim-zoom-in { animation: wi-zoom-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-pop { animation: wi-pop 360ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+.spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border-style: solid;
+  border-right-color: transparent !important;
+  animation: wi-spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- leaflet pins */
+.wi-pin {
+  background: none;
+  border: none;
+}
+.wi-pin-inner {
+  width: 46px;
+  height: 46px;
+  border-radius: 23px;
+  border: 3px solid #1d5c40;
+  background: #fff;
+  overflow: hidden;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.wi-pin-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.wi-pin-tail {
+  width: 10px;
+  height: 10px;
+  margin: -5px auto 0;
+  background: #1d5c40;
+  transform: rotate(45deg);
+}
+.wi-pin.selected .wi-pin-inner {
+  border-color: #e8a33d;
+  transform: scale(1.15);
+}
+.wi-pin.selected .wi-pin-tail {
+  background: #e8a33d;
+}
+.wi-me {
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: #2f5d8a;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 6px rgba(47, 93, 138, 0.25);
+}
+.leaflet-container {
+  font-family: "Poppins", system-ui, sans-serif;
+  background: #e3f0e8;
+}

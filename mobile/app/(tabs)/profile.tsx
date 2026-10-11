@@ -68,11 +68,7 @@ export default function ProfileScreen() {
       <View style={[styles.center, { paddingTop: top }]}>
         <EmptyState
           title="Welcome to WhatIf"
-<<<<<<< Updated upstream
           message="Sign in to imagine changes to your neighborhood, support your neighbors' ideas, and download request packets."
-=======
-          message="Sign in to create proposals and support your neighbors."
->>>>>>> Stashed changes
           actionLabel="Sign in"
           onAction={() => void login()}
         />
@@ -122,7 +118,6 @@ export default function ProfileScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{(user.displayName.trim()[0] ?? "?").toUpperCase()}</Text>
         </View>
-<<<<<<< Updated upstream
         <Display size={26} color="#fff" style={styles.name}>
           {user.displayName}
         </Display>
@@ -131,81 +126,6 @@ export default function ProfileScreen() {
           <View style={styles.stat}>
             <Text style={styles.statValue}>{items.length}</Text>
             <Text style={styles.statLabel}>Ideas</Text>
-=======
-        <Text style={styles.heading}>Profile</Text>
-
-        <Text style={styles.label}>Display name</Text>
-        <View style={styles.nameRow}>
-          <TextInput
-            style={[styles.input, styles.nameInput]}
-            value={name}
-            onChangeText={setDisplayName}
-            maxLength={40}
-            accessibilityLabel="Display name"
-          />
-          <PrimaryButton
-            title="Save"
-            onPress={saveName}
-            disabled={saving || name.trim() === user.displayName}
-            loading={saving}
-            variant="secondary"
-            style={styles.saveBtn}
-          />
-        </View>
-
-        <InfoRow label="App version" value={config.appVersion} />
-        <InfoRow label="API mode" value={config.apiMode} />
-        <InfoRow label="API base URL" value={config.apiBaseUrl} />
-
-        <PrimaryButton
-          title="Sign out"
-          onPress={() => void logout()}
-          variant="secondary"
-          style={styles.signOut}
-        />
-
-        {__DEV__ ? (
-          <View style={styles.devSection}>
-            <Text style={styles.devTitle}>Developer</Text>
-            <Text style={styles.devLabel}>Fixture failure simulation</Text>
-            <View style={styles.devRow}>
-              {(
-                [
-                  [null, "Off"],
-                  ["scene", "Fail scene"],
-                  ["render", "Fail render"],
-                ] as [FixtureFailure, string][]
-              ).map(([value, label]) => (
-                <Pressable
-                  key={label}
-                  onPress={() => setFailureMode(value)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: failure === value }}
-                  style={[
-                    styles.devChip,
-                    failure === value && styles.devChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.devChipText,
-                      failure === value && styles.devChipTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.devLabel}>Auth0 redirect URI</Text>
-            <Text style={styles.devNote}>
-              Paste this into the Auth0 dashboard → Applications → WhatIf
-              Mobile → Allowed Callback URLs:
-            </Text>
-            <Text selectable style={styles.uri}>
-              {redirectUri}
-            </Text>
->>>>>>> Stashed changes
           </View>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{published.length}</Text>

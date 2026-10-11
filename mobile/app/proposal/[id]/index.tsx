@@ -96,14 +96,9 @@ export default function ProposalDetailScreen() {
     setDownloading(true);
     try {
       const packet = await api.exportPacket(pid);
-<<<<<<< Updated upstream
       const file = await File.downloadFileAsync(packet.url, new File(Paths.cache, `whatif-${pid}.pdf`), {
         idempotent: true,
       });
-=======
-      const target = `${Paths.cache.uri}whatif-${pid}.pdf`;
-      const { uri } = await FileSystem.downloadAsync(packet.url, target);
->>>>>>> Stashed changes
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", dialogTitle: "Request packet" });
       } else {

@@ -1,0 +1,11 @@
+{
+  "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "sd-v1-5-inpainting.ckpt"}, "_meta": {"title": "CHECKPOINT"}},
+  "2": {"class_type": "LoadImage", "inputs": {"image": "source.png", "upload": "image"}, "_meta": {"title": "INPUT_IMAGE"}},
+  "3": {"class_type": "LoadImageMask", "inputs": {"image": "mask.png", "channel": "red", "upload": "image"}, "_meta": {"title": "INPUT_MASK"}},
+  "4": {"class_type": "CLIPTextEncode", "inputs": {"text": "positive prompt", "clip": ["1", 1]}, "_meta": {"title": "POSITIVE"}},
+  "5": {"class_type": "CLIPTextEncode", "inputs": {"text": "negative prompt", "clip": ["1", 1]}, "_meta": {"title": "NEGATIVE"}},
+  "6": {"class_type": "VAEEncodeForInpaint", "inputs": {"pixels": ["2", 0], "vae": ["1", 2], "mask": ["3", 0], "grow_mask_by": 8}, "_meta": {"title": "ENCODE"}},
+  "7": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["4", 0], "negative": ["5", 0], "latent_image": ["6", 0], "seed": 1, "steps": 25, "cfg": 7.0, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0}, "_meta": {"title": "SAMPLER"}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["7", 0], "vae": ["1", 2]}, "_meta": {"title": "DECODE"}},
+  "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "whatif"}, "_meta": {"title": "OUTPUT"}}
+}

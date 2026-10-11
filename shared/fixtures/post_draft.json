@@ -1,0 +1,42 @@
+{
+  "id": "p_draft",
+  "revision": 1,
+  "status": "draft",
+  "createdAt": "2026-10-10T18:00:00Z",
+  "updatedAt": "2026-10-10T18:00:00Z",
+  "publishedAt": null,
+  "author": {
+    "displayName": "Demo Neighbor",
+    "isViewer": true
+  },
+  "title": "",
+  "prompt": "",
+  "placeLabel": "Ponce de Leon Ave & N Highland Ave, Atlanta",
+  "location": {
+    "lat": 33.772,
+    "lng": -84.366,
+    "source": "manual"
+  },
+  "distanceKm": null,
+  "source": {
+    "id": "a_source",
+    "kind": "source",
+    "width": 1536,
+    "height": 2048,
+    "mimeType": "image/jpeg",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "url": "https://example.test/api/v1/media/a_source?exp=1791655200&sig=fixture",
+    "urlExpiresAt": "2026-10-10T19:00:00Z"
+  },
+  "concept": null,
+  "maskAssetId": null,
+  "review": null,
+  "generation": null,
+  "activeJob": null,
+  "aiDisclosure": "AI reimagined image — illustrative only.",
+  "score": 0,
+  "upvotes": 0,
+  "downvotes": 0,
+  "viewerVote": 0,
+  "commentCount": 0
+}

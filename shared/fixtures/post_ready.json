@@ -1,0 +1,73 @@
+{
+  "id": "p_ready",
+  "revision": 4,
+  "status": "ready",
+  "createdAt": "2026-10-10T18:00:00Z",
+  "updatedAt": "2026-10-10T18:05:00Z",
+  "publishedAt": null,
+  "author": {
+    "displayName": "Demo Neighbor",
+    "isViewer": true
+  },
+  "title": "A roof for the bus stop",
+  "prompt": "Add a simple weather shelter while preserving the street.",
+  "placeLabel": "Ponce de Leon Ave & N Highland Ave, Atlanta",
+  "location": {
+    "lat": 33.772,
+    "lng": -84.366,
+    "source": "manual"
+  },
+  "distanceKm": 0.8,
+  "source": {
+    "id": "a_source",
+    "kind": "source",
+    "width": 1536,
+    "height": 2048,
+    "mimeType": "image/jpeg",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "url": "https://example.test/api/v1/media/a_source?exp=1791655200&sig=fixture",
+    "urlExpiresAt": "2026-10-10T19:00:00Z"
+  },
+  "concept": {
+    "id": "a_concept",
+    "kind": "concept",
+    "width": 1536,
+    "height": 2048,
+    "mimeType": "image/jpeg",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "url": "https://example.test/api/v1/media/a_concept?exp=1791655200&sig=fixture",
+    "urlExpiresAt": "2026-10-10T19:00:00Z"
+  },
+  "maskAssetId": "a_mask",
+  "review": {
+    "verdict": "needs_review",
+    "flags": [
+      {
+        "id": "f_warning",
+        "code": "IMPLAUSIBLE_STRUCTURE",
+        "severity": "warning",
+        "message": "The roof posts may not meet the pavement."
+      }
+    ],
+    "outsideMaskChange": 0.004,
+    "provider": "fake",
+    "model": "fake-review",
+    "reviewedAt": "2026-10-10T18:04:00Z"
+  },
+  "generation": {
+    "provider": "fake",
+    "model": "fake-render",
+    "seed": 123456,
+    "durationMs": 1200,
+    "workflowVersion": "fake_v1",
+    "prompt": "Add a simple weather shelter while preserving the street.",
+    "createdAt": "2026-10-10T18:03:00Z"
+  },
+  "activeJob": null,
+  "aiDisclosure": "AI reimagined image — illustrative only.",
+  "score": 0,
+  "upvotes": 0,
+  "downvotes": 0,
+  "viewerVote": 0,
+  "commentCount": 0
+}

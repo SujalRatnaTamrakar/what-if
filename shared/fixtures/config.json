@@ -1,0 +1,15 @@
+{
+  "apiVersion": "1",
+  "maxUploadBytes": 15728640,
+  "maxImageEdge": 2048,
+  "promptMinChars": 5,
+  "promptMaxChars": 300,
+  "localRadiusKm": 10,
+  "localRadiusMaxKm": 50,
+  "aiDisclosure": "AI reimagined image — illustrative only.",
+  "providers": {
+    "prompt": "fake",
+    "render": "fake",
+    "review": "fake"
+  }
+}

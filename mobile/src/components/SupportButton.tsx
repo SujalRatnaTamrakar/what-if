@@ -4,8 +4,10 @@
  * double-tap never shows count + 2. Logged-out taps route to sign-in.
  */
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
+import { Text } from "./Text";
 import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useAuth } from "../auth/AuthProvider";
 import { useSupport } from "../hooks/useSupport";
 import type { Proposal } from "../api/types";
@@ -29,6 +31,7 @@ export function SupportButton({ proposal, onLoginRequired }: Props) {
       return;
     }
     if (mutation.isPending) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     mutation.mutate(false);
   };
 
@@ -60,8 +63,8 @@ export function SupportButton({ proposal, onLoginRequired }: Props) {
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
-    borderRadius: theme.radius.m,
+    minHeight: 54,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,

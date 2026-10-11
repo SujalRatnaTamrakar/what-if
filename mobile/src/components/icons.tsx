@@ -134,3 +134,106 @@ export function SproutIcon({ size = 34 }: { size?: number }) {
     </Svg>
   );
 }
+
+export function BackIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M19 12H5" />
+      <Path d="M12 19l-7-7 7-7" />
+    </Base>
+  );
+}
+
+export function HomeIcon({ filled = false, ...p }: IconProps & { filled?: boolean }) {
+  return (
+    <Base {...p}>
+      <Path
+        d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"
+        fill={filled ? p.color : "none"}
+      />
+    </Base>
+  );
+}
+
+export function PlusCircleIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Circle cx="12" cy="12" r="9" />
+      <Path d="M12 8v8" />
+      <Path d="M8 12h8" />
+    </Base>
+  );
+}
+
+export function StackIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M8 8h11a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <Path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h2" />
+    </Base>
+  );
+}
+
+export function UserIcon({ filled = false, ...p }: IconProps & { filled?: boolean }) {
+  return (
+    <Base {...p}>
+      <Circle cx="12" cy="8" r="4" fill={filled ? p.color : "none"} />
+      <Path d="M4 21v-1a7 7 0 0 1 16 0v1" />
+    </Base>
+  );
+}
+
+export function CheckIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M5 12.5l4.5 4.5L19 7.5" />
+    </Base>
+  );
+}
+
+export function SparkleIcon(p: IconProps) {
+  return (
+    <Base {...p} strokeWidth={1.8}>
+      <Path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+      <Path d="M19 16v4M17 18h4" />
+    </Base>
+  );
+}
+
+export function BrushIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M18.4 2.6a2 2 0 0 1 2.9 2.8L11 15.7 7.6 12.3z" />
+      <Path d="M7.6 12.3C5.5 12.3 4 13.8 4 16c0 1.5-.8 2.6-2 3.4 3.8 1.2 8.5.8 9.4-3.7" />
+    </Base>
+  );
+}
+
+export function EraserIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M20 20H9l-5.3-5.3a2 2 0 0 1 0-2.8l8.2-8.2a2 2 0 0 1 2.8 0l5.6 5.6a2 2 0 0 1 0 2.8L12 19" />
+      <Path d="M7 9.5l7.5 7.5" />
+    </Base>
+  );
+}
+
+export function UndoIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9 14L4 9l5-5" />
+      <Path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </Base>
+  );
+}
+
+export function TrashIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M3 6h18" />
+      <Path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <Path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+      <Path d="M10 11v6M14 11v6" />
+    </Base>
+  );
+}

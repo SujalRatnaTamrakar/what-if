@@ -1,1 +1,31 @@
-{"expo":{"android":{"adaptiveIcon":{"backgroundColor":"#ffffff"},"package":"dev.placepatch.mobile"},"ios":{"bundleIdentifier":"dev.placepatch.mobile","supportsTablet":true},"name":"PlacePatch","newArchEnabled":true,"orientation":"portrait","plugins":["expo-router"],"scheme":"placepatch","slug":"placepatch","userInterfaceStyle":"light","version":"1.0.0","web":{"bundler":"metro"}}}
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "package": "dev.placepatch.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "dev.placepatch.mobile",
+      "supportsTablet": true
+    },
+    "name": "PlacePatch",
+    "newArchEnabled": true,
+    "orientation": "portrait",
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-asset"
+    ],
+    "scheme": "placepatch",
+    "slug": "placepatch",
+    "userInterfaceStyle": "light",
+    "version": "1.0.0",
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

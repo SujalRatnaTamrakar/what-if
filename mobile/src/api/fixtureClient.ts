@@ -8,6 +8,7 @@
  * - NEVER touches the network
  * Framework-free.
  */
+import { Asset } from "expo-asset";
 import type { ApiClient } from "./ApiClient";
 import { ApiError } from "./errors";
 import type {
@@ -42,7 +43,22 @@ import feedPublicJson from "../fixtures/feed_public.json";
 import feedMineJson from "../fixtures/feed_mine.json";
 import errorProviderUnavailableJson from "../fixtures/error_provider_unavailable.json";
 
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
+/**
+ * Fixture media URLs point at a placeholder host; map them to the bundled
+ * sample photos (a* = source photo, c* = AI concept) so fixture mode shows
+ * real images and still never touches the network.
+ */
+const localImage = (asset: number) => Asset.fromModule(asset).uri;
+const SOURCE_IMG = localImage(require("../fixtures/images/source.jpg"));
+const CONCEPT_IMG = localImage(require("../fixtures/images/concept.jpg"));
+const localizeMedia = (_k: string, v: unknown): unknown => {
+  if (typeof v !== "string") return v;
+  const m = /\/media\/([ac])\d+\?/.exec(v);
+  if (!m) return v;
+  return (m[1] === "a" ? SOURCE_IMG : CONCEPT_IMG) ?? v;
+};
+const clone = <T,>(v: T): T =>
+  JSON.parse(JSON.stringify(v), localizeMedia) as T;
 /** Fixture JSON → typed Proposal (some fixtures wrap it, some don't). */
 const asProposal = (v: unknown): Proposal => clone(v as Proposal);
 const delay = () =>

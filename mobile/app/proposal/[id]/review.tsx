@@ -5,25 +5,19 @@
  * fields, approval checkboxes, big green Publish. Regenerate → generate.
  */
 import React, { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View, KeyboardAvoidingView, Platform } from "react-native";
+import { Text } from "../../../src/components/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, friendlyMessage } from "../../../src/api";
 import type { Proposal, ProposalPatch } from "../../../src/api/types";
 import { useProposal } from "../../../src/hooks/useProposal";
+import { ScreenHeader } from "../../../src/components/ScreenHeader";
 import { BeforeAfterSlider } from "../../../src/components/BeforeAfterSlider";
 import { FlagList } from "../../../src/components/FlagList";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { PrimaryButton } from "../../../src/components/PrimaryButton";
-import { theme } from "../../../src/theme";
+import { fonts, theme } from "../../../src/theme";
 
 const TITLE_MAX = 120;
 const CHANGE_MAX = 1500;
@@ -179,27 +173,23 @@ export default function ReviewScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScreenHeader title="Review & publish" />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.back}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.heading}>Review & publish</Text>
-
         {proposal.concept && (
           <BeforeAfterSlider
             beforeUri={proposal.source.url}
             afterUri={proposal.concept.url}
             aspectRatio={proposal.source.width / proposal.source.height}
+            rounded
           />
         )}
 
@@ -361,7 +351,7 @@ export default function ReviewScreen() {
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -517,7 +507,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: theme.colors.muted,
   },
-  fieldInput: { fontSize: 15, color: theme.colors.text, minHeight: 24 },
+  fieldInput: {
+    fontFamily: fonts.regular, fontSize: 15, color: theme.colors.text, minHeight: 24 },
   fieldMultiline: { minHeight: 96 },
   hint: {
     fontSize: 11,

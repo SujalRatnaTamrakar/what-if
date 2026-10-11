@@ -4,8 +4,10 @@
  * - Second banner "Demo renderer (fake)" when config.providers.render==='fake'
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import { useQuery } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { config } from "../config";
 
@@ -16,11 +18,12 @@ export function FixtureBanner() {
     staleTime: 60_000,
     retry: false,
   });
+  const { top } = useSafeAreaInsets();
   if (config.apiMode !== "fixture") return null;
   const fakeRender = data?.providers?.render === "fake";
   return (
     <View style={styles.wrap}>
-      <View style={styles.banner}>
+      <View style={[styles.banner, { paddingTop: top + 6 }]}>
         <Text style={styles.text}>DEVELOPMENT FIXTURES — NOT LIVE AI</Text>
       </View>
       {fakeRender ? (

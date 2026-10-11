@@ -9,16 +9,10 @@
  * show inline fieldErrors.
  */
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { fonts } from "../../src/theme";
+import { Text } from "../../src/components/Text";
+import { useTopInset } from "../../src/lib/useTopInset";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { api } from "../../src/api";
@@ -40,6 +34,7 @@ function guessMimeType(uri: string, reported?: string): string {
 }
 
 export default function CreateScreen() {
+  const top = useTopInset();
   const { isLoading, isLoggedIn, login } = useAuth();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoMime, setPhotoMime] = useState("image/jpeg");
@@ -142,7 +137,7 @@ export default function CreateScreen() {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: 20 + top }]}>
       <Text style={styles.heading}>Photograph a place</Text>
 
       {photoUri ? (
@@ -251,6 +246,7 @@ const styles = StyleSheet.create({
   retakeRow: { marginTop: 10, alignSelf: "flex-start" },
   label: { fontSize: 15, fontWeight: "700", color: INK, marginTop: 16, marginBottom: 6 },
   input: {
+    fontFamily: fonts.regular,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#E5E0D3",

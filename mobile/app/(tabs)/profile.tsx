@@ -5,15 +5,9 @@
  * and the Auth0 redirect URI for the dashboard paste step.
  */
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Text } from "../../src/components/Text";
+import { useTopInset } from "../../src/lib/useTopInset";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, friendlyMessage, getFixtureFailure, setFixtureFailure } from "../../src/api";
 import type { FixtureFailure } from "../../src/api";
@@ -22,9 +16,10 @@ import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { EmptyState } from "../../src/components/EmptyState";
 import { AppHeader } from "../../src/components/AppHeader";
 import { config } from "../../src/config";
-import { theme } from "../../src/theme";
+import { fonts, theme } from "../../src/theme";
 
 export default function ProfileScreen() {
+  const top = useTopInset();
   const { isLoggedIn, isLoading, user, login, logout, redirectUri } = useAuth();
   const qc = useQueryClient();
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -89,7 +84,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: theme.spacing.l + top }]}>
         <View style={styles.headerWrap}>
           <AppHeader />
         </View>
@@ -216,6 +211,7 @@ const styles = StyleSheet.create({
   },
   nameRow: { flexDirection: "row", alignItems: "center" },
   input: {
+    fontFamily: fonts.regular,
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.border,

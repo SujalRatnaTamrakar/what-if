@@ -10,12 +10,9 @@
  * /proposal/[id]/review. Reopening mid-job resumes via proposal.activeJob.
  */
 import React, { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Text } from "../../../src/components/Text";
+import { useTopInset } from "../../../src/lib/useTopInset";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { api } from "../../../src/api";
@@ -43,6 +40,7 @@ function formatElapsed(ms: number): string {
 }
 
 export default function GenerateScreen() {
+  const top = useTopInset();
   const { id } = useLocalSearchParams<{ id: string }>();
   const proposalQuery = useProposal(id);
   const invalidateProposal = useInvalidateProposal();
@@ -201,7 +199,7 @@ export default function GenerateScreen() {
   const missingPrereqs = !proposal.scene || !proposal.selectedOptionId || !proposal.maskAssetId;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: top }]}>
       <View style={styles.content}>
         <Text style={styles.heading}>Creating your concept</Text>
 

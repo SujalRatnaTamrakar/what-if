@@ -4,7 +4,8 @@
  * "People. Places. Brighter tomorrows.", search + kebab icons right.
  */
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import { theme } from "../theme";
 import { KebabIcon, SearchIcon, SproutIcon } from "./icons";
 

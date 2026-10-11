@@ -3,14 +3,8 @@
  * Tappable areas ≥ 44pt. Accent: deep civic green.
  */
 import React from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from "react-native";
+import { Text } from "./Text";
 
 export const ACCENT = "#1d5c40";
 export const ACCENT_DARK = "#14432e";

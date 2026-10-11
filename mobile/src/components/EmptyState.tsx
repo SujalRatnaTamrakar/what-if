@@ -2,7 +2,8 @@
  * mobile/src/components/EmptyState.tsx — generic empty view.
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import { MUTED } from "./PrimaryButton";
 import { PrimaryButton } from "./PrimaryButton";
 

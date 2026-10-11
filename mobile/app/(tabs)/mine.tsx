@@ -5,15 +5,9 @@
  * doesn't carry step state).
  */
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { Text } from "../../src/components/Text";
+import { useTopInset } from "../../src/lib/useTopInset";
 import { router } from "expo-router";
 import { api, ApiError, friendlyMessage } from "../../src/api";
 import { useAuth } from "../../src/auth/AuthProvider";
@@ -41,6 +35,7 @@ function statusBadge(item: ProposalSummary): { label: string; bg: string; fg: st
 }
 
 export default function MineScreen() {
+  const top = useTopInset();
   const { isLoggedIn, isLoading: authLoading, login } = useAuth();
   const feed = useFeed("mine");
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -75,7 +70,7 @@ export default function MineScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: theme.spacing.l + top }]}>
         <EmptyState
           title="Sign in to see your proposals"
           message="Your drafts and published proposals live here."
@@ -98,7 +93,7 @@ export default function MineScreen() {
 
   if (feed.isError) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: theme.spacing.l + top }]}>
         <Text style={styles.heading}>My proposals</Text>
         <ErrorState error={feed.error} onRetry={() => feed.refetch()} />
       </View>
@@ -107,7 +102,7 @@ export default function MineScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.headerWrap}>
+      <View style={[styles.headerWrap, { paddingTop: top + 14 }]}>
         <AppHeader />
       </View>
       <FlatList

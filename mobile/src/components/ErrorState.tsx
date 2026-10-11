@@ -4,7 +4,8 @@
  * the caller's form state.
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import { ApiError, friendlyMessage } from "../api/errors";
 import { DANGER, INK, MUTED } from "./PrimaryButton";
 import { PrimaryButton } from "./PrimaryButton";

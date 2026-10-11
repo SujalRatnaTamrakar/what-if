@@ -8,17 +8,16 @@
  * /proposal/[id]/generate.
  */
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "../../../src/components/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import { api } from "../../../src/api";
 import { useInvalidateProposal, useProposal } from "../../../src/hooks/useProposal";
 import { ErrorState, asApiError } from "../../../src/components/ErrorState";
+import { ScreenHeader } from "../../../src/components/ScreenHeader";
+import { BrushIcon, EraserIcon, TrashIcon, UndoIcon } from "../../../src/components/icons";
 import { MaskCanvas } from "../../../src/components/MaskCanvas";
 import { PrimaryButton, ACCENT, INK, MUTED, PAPER } from "../../../src/components/PrimaryButton";
 import type { MaskStrokes } from "../../../src/api/types";
@@ -33,6 +32,7 @@ export default function MaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const proposalQuery = useProposal(id);
   const invalidateProposal = useInvalidateProposal();
+  const insets = useSafeAreaInsets();
 
   const [strokes, setStrokes] = useState<MaskStrokes>({ version: 1, strokes: [] });
   const [mode, setMode] = useState<"paint" | "erase">("paint");
@@ -98,12 +98,33 @@ export default function MaskScreen() {
     }
   };
 
+  const chip = (
+    label: string,
+    active: boolean,
+    onPress: () => void,
+    icon?: React.ReactNode
+  ) => (
+    <Pressable
+      key={label}
+      onPress={() => {
+        void Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[styles.chip, active && styles.chipActive]}
+    >
+      {icon}
+      <Text style={[styles.chipText, active && styles.chipTextActive, icon ? { marginLeft: 8 } : null]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+  const empty = strokes.strokes.length === 0;
+
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Brush the change</Text>
-        {option ? <Text style={styles.maskHint}>{option.maskHint}</Text> : null}
-      </View>
+      <ScreenHeader title="Brush the change" accentTitle />
 
       <View style={styles.canvasWrap}>
         <MaskCanvas
@@ -117,59 +138,51 @@ export default function MaskScreen() {
         />
       </View>
 
-      <View style={styles.controls}>
-        <View style={styles.segContainer}>
-          {(["paint", "erase"] as const).map((m) => (
-            <TouchableOpacity
-              key={m}
-              onPress={() => setMode(m)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === m }}
-              style={[styles.seg, mode === m && styles.segActive]}
-            >
-              <Text style={[styles.segText, mode === m && styles.segTextActive]}>
-                {m === "paint" ? "🖌 Paint" : "🧽 Erase"}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+        <View style={[styles.row, styles.wrapRow]}>
+          {chip(
+            "Paint",
+            mode === "paint",
+            () => setMode("paint"),
+            <BrushIcon size={18} color={mode === "paint" ? "#fff" : INK} />
+          )}
+          {chip(
+            "Erase",
+            mode === "erase",
+            () => setMode("erase"),
+            <EraserIcon size={18} color={mode === "erase" ? "#fff" : INK} />
+          )}
+          <View style={styles.vr} />
+          {BRUSH_SIZES.map((b) =>
+            chip(b.label, brushWidth === b.value, () => setBrushWidth(b.value))
+          )}
         </View>
 
-        <View style={styles.row}>
-          {BRUSH_SIZES.map((b) => (
-            <TouchableOpacity
-              key={b.label}
-              onPress={() => setBrushWidth(b.value)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: brushWidth === b.value }}
-              style={[styles.sizePill, brushWidth === b.value && styles.sizePillActive]}
-            >
-              <Text
-                style={[
-                  styles.sizeText,
-                  brushWidth === b.value && styles.sizeTextActive,
-                ]}
-              >
-                {b.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Text style={styles.maskHint}>
+          {option?.maskHint ?? "Brush the area you'd like to change."}
+        </Text>
 
         <View style={styles.row}>
-          <TouchableOpacity
+          <Pressable
             onPress={undo}
-            disabled={strokes.strokes.length === 0}
-            style={[styles.toolBtn, strokes.strokes.length === 0 && styles.toolDisabled]}
+            disabled={empty}
+            accessibilityRole="button"
+            accessibilityLabel="Undo last stroke"
+            style={[styles.toolBtn, empty && styles.toolDisabled]}
           >
-            <Text style={styles.toolText}>↩ Undo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            <UndoIcon size={18} color={INK} />
+            <Text style={styles.toolText}>Undo</Text>
+          </Pressable>
+          <Pressable
             onPress={clear}
-            disabled={strokes.strokes.length === 0}
-            style={[styles.toolBtn, strokes.strokes.length === 0 && styles.toolDisabled]}
+            disabled={empty}
+            accessibilityRole="button"
+            accessibilityLabel="Clear all strokes"
+            style={[styles.toolBtn, empty && styles.toolDisabled]}
           >
-            <Text style={styles.toolText}>🗑 Clear</Text>
-          </TouchableOpacity>
+            <TrashIcon size={18} color={INK} />
+            <Text style={styles.toolText}>Clear</Text>
+          </Pressable>
         </View>
 
         {error ? (
@@ -201,54 +214,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 32,
   },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  heading: { fontSize: 20, fontWeight: "800", color: ACCENT },
-  maskHint: { fontSize: 14, color: INK, marginTop: 6 },
+  maskHint: { fontSize: 14, color: INK, textAlign: "left" },
   canvasWrap: { flex: 1, backgroundColor: "#111" },
-  controls: { padding: 16, gap: 10, backgroundColor: PAPER },
-  row: { flexDirection: "row", gap: 8 },
-  segContainer: {
+  controls: { paddingHorizontal: 16, paddingTop: 14, gap: 12, backgroundColor: PAPER },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  wrapRow: { flexWrap: "wrap", rowGap: 8 },
+  vr: { width: 1, alignSelf: "stretch", marginVertical: 6, backgroundColor: "#DDD6C6" },
+  chip: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#E5E0D3",
-    padding: 4,
-    gap: 4,
-  },
-  seg: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-  },
-  segActive: { backgroundColor: ACCENT },
-  segText: { fontSize: 14, fontWeight: "600", color: MUTED },
-  segTextActive: { color: "#fff" },
-  sizePill: {
-    flex: 1,
     minHeight: 44,
+    paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: "#EFEAE0",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#ECE6D8",
   },
-  sizePillActive: { backgroundColor: ACCENT },
-  sizeText: { fontSize: 14, fontWeight: "600", color: INK },
-  sizeTextActive: { color: "#fff" },
+  chipActive: { backgroundColor: ACCENT },
+  chipText: { fontSize: 14, fontWeight: "600", color: INK },
+  chipTextActive: { color: "#fff" },
   toolBtn: {
     flex: 1,
-    minHeight: 44,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 999,
+    borderRadius: 12,
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#D6D0C2",
   },
   toolDisabled: { opacity: 0.4 },
-  toolText: { fontSize: 14, fontWeight: "600", color: INK },
+  toolText: { fontSize: 15, fontWeight: "600", color: INK },
   errorWrap: { marginVertical: 4 },
   needBrush: { fontSize: 12, color: MUTED, textAlign: "center" },
 });

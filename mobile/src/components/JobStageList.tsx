@@ -3,7 +3,8 @@
  * percentages (§7.5 Global). Current stage highlighted, finished get a check.
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import type { JobStage } from "../api/types";
 import { ACCENT, INK, MUTED } from "./PrimaryButton";
 

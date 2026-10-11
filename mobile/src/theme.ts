@@ -27,4 +27,30 @@ export const theme = {
   fontSize: { s: 13, m: 15, l: 17, xl: 21, xxl: 26 },
 } as const;
 
+export const fonts = {
+  regular: "Poppins_400Regular",
+  medium: "Poppins_500Medium",
+  semibold: "Poppins_600SemiBold",
+  bold: "Poppins_700Bold",
+} as const;
+
+/** Maps a style fontWeight onto the matching Poppins face. */
+export function fontForWeight(weight?: string | number): string {
+  const w = typeof weight === "string" ? parseInt(weight, 10) || (weight === "bold" ? 700 : 400) : (weight ?? 400);
+  if (w >= 700) return fonts.bold;
+  if (w >= 600) return fonts.semibold;
+  if (w >= 500) return fonts.medium;
+  return fonts.regular;
+}
+
+export const shadows = {
+  card: {
+    shadowColor: "#1F2933",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+} as const;
+
 export type Theme = typeof theme;

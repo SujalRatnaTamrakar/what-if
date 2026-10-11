@@ -5,14 +5,8 @@
  * outlined packet download button.
  */
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "../../../src/components/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import * as FileSystem from "expo-file-system";
 import { Paths } from "expo-file-system";
@@ -21,6 +15,7 @@ import { api, ApiError, friendlyMessage } from "../../../src/api";
 import { config } from "../../../src/config";
 import { useProposal } from "../../../src/hooks/useProposal";
 import { BeforeAfterSlider } from "../../../src/components/BeforeAfterSlider";
+import { ScreenHeader } from "../../../src/components/ScreenHeader";
 import { SupportButton } from "../../../src/components/SupportButton";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { PrimaryButton } from "../../../src/components/PrimaryButton";
@@ -60,9 +55,7 @@ export default function ProposalDetailScreen() {
   if (error || !p) {
     return (
       <View style={styles.container}>
-        <Pressable onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
+        <ScreenHeader title="Proposal" />
         <ErrorState error={error} onRetry={() => refetch()} />
       </View>
     );
@@ -96,16 +89,12 @@ export default function ProposalDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.back}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
-
+      <ScreenHeader title="Proposal" />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {p.concept ? (
           <BeforeAfterSlider
             beforeUri={p.source.url}
@@ -115,9 +104,10 @@ export default function ProposalDetailScreen() {
             afterLabel="After"
           />
         ) : (
-          <Text style={styles.muted}>Concept not ready yet.</Text>
+          <Text style={[styles.muted, styles.pad]}>Concept not ready yet.</Text>
         )}
 
+        <View style={styles.pad}>
         <Text style={styles.title}>{p.title || "Untitled proposal"}</Text>
 
         <View style={styles.authorRow}>
@@ -179,6 +169,7 @@ export default function ProposalDetailScreen() {
             style={styles.continueBtn}
           />
         ) : null}
+        </View>
         <View style={{ height: 40 }} />
       </ScrollView>
       {toast ? (
@@ -192,8 +183,9 @@ export default function ProposalDetailScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  container: { flex: 1 },
-  content: { padding: theme.spacing.l, paddingBottom: 0 },
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  content: { paddingBottom: 0 },
+  pad: { paddingHorizontal: theme.spacing.l },
   center: {
     flex: 1,
     alignItems: "center",
@@ -204,7 +196,7 @@ const styles = StyleSheet.create({
   backText: { fontSize: 16, color: theme.colors.accent, fontWeight: "600" },
   title: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.colors.text,
     marginTop: theme.spacing.m,
     lineHeight: 30,
@@ -215,9 +207,9 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.s,
   },
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: theme.colors.accentSoft,
     alignItems: "center",
     justifyContent: "center",
@@ -252,8 +244,8 @@ const styles = StyleSheet.create({
   supportWrap: { marginTop: theme.spacing.l },
   packetBtn: {
     marginTop: theme.spacing.m,
-    minHeight: 52,
-    borderRadius: 12,
+    minHeight: 54,
+    borderRadius: 999,
     borderWidth: 1.5,
     borderColor: theme.colors.accent,
     backgroundColor: theme.colors.card,

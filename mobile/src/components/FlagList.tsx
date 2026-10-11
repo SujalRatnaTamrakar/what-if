@@ -4,7 +4,8 @@
  * Blocking/info flags are display-only.
  */
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Text } from "./Text";
 import type { ReviewFlag } from "../api/types";
 import { theme } from "../theme";
 

@@ -8,13 +8,9 @@
  * → api.updateProposal({selectedOptionId}) → /proposal/[id]/mask.
  */
 import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "../../../src/components/Text";
+import { useTopInset } from "../../../src/lib/useTopInset";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { api } from "../../../src/api";
@@ -28,6 +24,7 @@ import type { JobStage } from "../../../src/api/types";
 const SCENE_STAGES: JobStage[] = ["queued", "analyze"];
 
 export default function SuggestScreen() {
+  const top = useTopInset();
   const { id, jobId: jobIdParam } = useLocalSearchParams<{
     id: string;
     jobId?: string;
@@ -123,7 +120,7 @@ export default function SuggestScreen() {
   const sceneReady = !!proposal.scene && (!job || job.status === "succeeded");
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: 20 + top }]}>
       <Text style={styles.heading}>What could change here?</Text>
 
       {jobRunning ? (

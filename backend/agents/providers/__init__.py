@@ -38,7 +38,7 @@ def _build_single(name: str, role: str):
         return OllamaProvider(model=model, timeout=timeout)
 
     if name == "gemini":
-        model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+        model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
         timeout = int(os.environ.get("GEMINI_TIMEOUT_SECONDS", "60"))
         return GeminiProvider(model=model, timeout=timeout)
 

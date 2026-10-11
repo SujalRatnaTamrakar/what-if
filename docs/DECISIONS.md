@@ -32,7 +32,7 @@ Fill in at G0 (see `docs/MASTER_PLAN.md` §15). Client IDs are public; never rec
 | | | |
 
 ## 2026-10-10 ~20:30 EDT — real providers wired (integration pass)
-- [x] `GEMINI_MODEL=gemini-2.5-flash`, `GEMINI_IMAGE_MODEL=gemini-2.5-flash-image` (verified against the live model list; the old `gemini-2.0-flash-preview-image-generation` default in code is retired — 404)
+- [x] `GEMINI_MODEL=gemini-3.8-flash`, `GEMINI_IMAGE_MODEL=gemini-3.1-flash-image` (re-verified against the live model list 2026-10-11: gemini-2.5-* and 2.0-* now 404; the old `gemini-2.0-flash-preview-image-generation` default in code is retired — 404)
 - [x] Providers: `SCENE_PROVIDER=gemini`, `DRAFT_PROVIDER=gemini`, `REVIEW_PROVIDER=gemini`, `RENDER_PROVIDER=gemini_image` (in `backend/.env`, never committed)
 - [x] Real Gemini scene analysis verified: correct output, honest description of placeholder image, 2 catalog options, ~2 min in this sandbox (expect faster off-proxy)
 - [x] Real Gemini review verified: correctly returned `blocked`/`REQUEST_MISMATCH` on a concept missing the requested change

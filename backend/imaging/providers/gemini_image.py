@@ -8,7 +8,7 @@ though the model has no mask input.
 Env:
   GEMINI_API_KEY     (required; sent as a query param — hackathon-grade, do not
                       log it)
-  GEMINI_IMAGE_MODEL default gemini-2.0-flash-preview-image-generation
+  GEMINI_IMAGE_MODEL default gemini-3.1-flash-image
 """
 
 from __future__ import annotations
@@ -32,7 +32,17 @@ WORKFLOW_VERSION = "gemini_composite_v1"
 
 
 def _model() -> str:
-    return os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-preview-image-generation")
+    return os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
+
+
+def _edit_goal(prompt) -> str:
+    """EditPrompt arrives as the agents' pydantic model (edit_goal) or the
+    imaging dataclass (editGoal); accept either."""
+    return (
+        getattr(prompt, "editGoal", None)
+        or getattr(prompt, "edit_goal", None)
+        or getattr(prompt, "positive", "")
+    )
 
 
 def _b64_png(img: Image.Image) -> str:
@@ -63,7 +73,7 @@ def render_at_work_size(
     guide = _guide_image(source, mask)
 
     instruction = (
-        f"Edit this photo: {prompt.editGoal or prompt.positive}. "
+        f"Edit this photo: {_edit_goal(prompt)}. "
         "Add the change ONLY inside the region outlined in red in the second "
         "(guide) image. Keep every pixel outside that region exactly identical "
         "to the first image — same lighting, perspective and materials. "
@@ -85,7 +95,7 @@ def render_at_work_size(
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     try:
-        r = httpx.post(url, params={"key": api_key}, json=body, timeout=float(timeout_s))
+        r = httpx.post(url, headers={"x-goog-api-key": api_key}, json=body, timeout=float(timeout_s))
     except httpx.ConnectError as e:
         raise ProviderUnavailable(f"cannot reach Gemini API: {e}")
     except httpx.TimeoutException as e:

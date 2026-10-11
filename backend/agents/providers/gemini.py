@@ -25,7 +25,7 @@ class GeminiProvider(LLMProvider):
         api_key: str | None = None,
         timeout: int = 60,
     ):
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         self.timeout = timeout
 

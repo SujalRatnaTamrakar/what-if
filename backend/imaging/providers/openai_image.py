@@ -67,7 +67,7 @@ def render_at_work_size(
 
     source = Image.open(work_source).convert("RGB")
     instruction = (
-        f"Edit this photo: {getattr(prompt, 'editGoal', None) or getattr(prompt, 'positive', '')}. "
+        f"Edit this photo: {getattr(prompt, 'editGoal', None) or getattr(prompt, 'edit_goal', None) or getattr(prompt, 'positive', '')}. "
         "Change ONLY the area indicated by the transparent region of the mask. "
         "Keep every pixel outside that region exactly identical — same lighting, "
         "perspective and materials. Photorealistic daytime street photo. "

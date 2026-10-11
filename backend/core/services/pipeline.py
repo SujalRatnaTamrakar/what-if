@@ -96,11 +96,7 @@ def _imaging_render(source_path: Path, mask_path: Path, edit_prompt, timeout_s: 
     """Call imaging.render_edit; inline fake if backend.imaging is missing."""
     try:
         from backend import imaging as real_imaging  # noqa
-
-        return real_imaging.render_edit(
-            source_path, mask_path, edit_prompt, timeout_s=timeout_s
-        )
-    except Exception as exc:
+    except ImportError as exc:
         log.warning("pipeline: backend.imaging unavailable (%s); using inline fake render", exc)
         # Inline fake: copy the source as the "concept" with honest metadata.
         from backend.common.errors import ProviderError  # noqa  (exists per AGENTS.md)
@@ -123,6 +119,12 @@ def _imaging_render(source_path: Path, mask_path: Path, edit_prompt, timeout_s: 
             output_path = out
 
         return _FakeResult()
+
+    # Real provider errors propagate so the job fails honestly (retryable)
+    # instead of silently publishing the source photo as the "concept".
+    return real_imaging.render_edit(
+        source_path, mask_path, edit_prompt, timeout_s=timeout_s
+    )
 
 
 def _dump(obj) -> dict:

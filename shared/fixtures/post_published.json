@@ -1,0 +1,66 @@
+{
+  "id": "p_published",
+  "revision": 6,
+  "status": "published",
+  "createdAt": "2026-10-10T18:00:00Z",
+  "updatedAt": "2026-10-10T18:10:00Z",
+  "publishedAt": "2026-10-10T18:10:00Z",
+  "author": {
+    "displayName": "Demo Neighbor",
+    "isViewer": false
+  },
+  "title": "A roof for the bus stop",
+  "prompt": "Add a simple weather shelter while preserving the street.",
+  "placeLabel": "Ponce de Leon Ave & N Highland Ave, Atlanta",
+  "location": {
+    "lat": 33.772,
+    "lng": -84.366,
+    "source": "manual"
+  },
+  "distanceKm": null,
+  "source": {
+    "id": "a_source",
+    "kind": "source",
+    "width": 1536,
+    "height": 2048,
+    "mimeType": "image/jpeg",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "url": "https://example.test/api/v1/media/a_source?exp=1791655200&sig=fixture",
+    "urlExpiresAt": "2026-10-10T19:00:00Z"
+  },
+  "concept": {
+    "id": "a_concept",
+    "kind": "concept",
+    "width": 1536,
+    "height": 2048,
+    "mimeType": "image/jpeg",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "url": "https://example.test/api/v1/media/a_concept?exp=1791655200&sig=fixture",
+    "urlExpiresAt": "2026-10-10T19:00:00Z"
+  },
+  "maskAssetId": null,
+  "review": {
+    "verdict": "clear",
+    "flags": [],
+    "outsideMaskChange": 0.002,
+    "provider": "fake",
+    "model": "fake-review",
+    "reviewedAt": "2026-10-10T18:09:00Z"
+  },
+  "generation": {
+    "provider": "fake",
+    "model": "fake-render",
+    "seed": 123456,
+    "durationMs": 1200,
+    "workflowVersion": "fake_v1",
+    "prompt": "Add a simple weather shelter while preserving the street.",
+    "createdAt": "2026-10-10T18:08:00Z"
+  },
+  "activeJob": null,
+  "aiDisclosure": "AI reimagined image — illustrative only.",
+  "score": 5,
+  "upvotes": 6,
+  "downvotes": 1,
+  "viewerVote": 1,
+  "commentCount": 3
+}

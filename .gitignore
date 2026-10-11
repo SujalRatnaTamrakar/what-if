@@ -1,16 +1,30 @@
 .DS_Store
-.venv/
-venv/
-node_modules/
-__pycache__/
-*.pyc
-.pytest_cache/
+
+# env / secrets
 .env
 .env.*
+*.env
 !.env.example
-*.pt
-*.safetensors
-*.ckpt
+!*.env.example
+
+# python
+.venv/
+venv/
+backend/.venv/
+backend/media/
+backend/db.sqlite3
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# js / expo
+node_modules/
 .expo/
+mobile/.expo/
 dist/
 build/
+
+# model weights
+*.pt
+*.ckpt
+*.safetensors

@@ -1,0 +1,10 @@
+{
+  "name": "WhatIf",
+  "short_name": "WhatIf",
+  "description": "Photograph a place, brush the change, and let AI imagine it. Rally neighbors with a before/after.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F1E7",
+  "theme_color": "#F6F1E7",
+  "icons": [{ "src": "/icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
+}

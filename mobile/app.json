@@ -5,10 +5,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f6f1e7"
       },
-      "package": "dev.placepatch.mobile"
+      "package": "dev.whatif.mobile"
     },
     "ios": {
-      "bundleIdentifier": "dev.placepatch.mobile",
+      "bundleIdentifier": "dev.whatif.mobile",
       "supportsTablet": true
     },
     "name": "WhatIf",
@@ -41,8 +41,8 @@
         }
       ]
     ],
-    "scheme": "placepatch",
-    "slug": "placepatch",
+    "scheme": "whatif",
+    "slug": "whatif",
     "userInterfaceStyle": "light",
     "version": "1.0.0",
     "web": {

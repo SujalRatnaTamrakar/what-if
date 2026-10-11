@@ -6,7 +6,7 @@ The team has an initial plan (`plan/what-if-initial-plan.pdf`, "WhatIf v2.0", Ha
 
 - **Mobile app first**, built mainly with **rork.com** (Rork generates Expo / React Native + TypeScript). **Flutter** is the backup.
 - **Backend:** Django + Django REST Framework, Auth0, REST APIs.
-- **Web:** not being built now, but it must be planned so it can be added later without backend changes.
+- **Web:** planned so it could be added later without backend changes; now built in `web/` (§12) against the same contract.
 - **Four people**, each using their own AI coding agent on a separate module. Their pieces have to fit together into one consistent product that can be configured in one place.
 
 This document is the **single source of truth**. It replaces the PDF wherever the two disagree. Everything else in the PDF still applies: product scope, the honesty and privacy rules, side-challenge limits and the deadline.
@@ -60,7 +60,7 @@ Rules for every AI agent (also copied into `AGENTS.md`):
 |---|---|---|
 | Mobile (primary) | **Rork → Expo (React Native) + TypeScript + expo-router** | Export to GitHub `mobile/`; continue locally in Expo if Rork limits are hit |
 | Mobile (backup) | **Flutter 3.x + Dart** | Only if the go/no-go in §13 fails. Same contract, routes and config names |
-| Web (later) | **React + TypeScript + Vite** | Reuses the framework-free TS API layer from mobile |
+| Web | **React + TypeScript + Vite** (`web/`) | Reuses the framework-free TS API layer from mobile |
 | Backend | **Django 5 + DRF**, Python 3.11+ | Single API for all clients |
 | Auth | **Auth0** (Native app for mobile, SPA app for web, one API audience) | Backend verifies RS256 JWT; identity = `sub` |
 | DB | **Tiger Data (TimescaleDB) Postgres**; local Postgres fallback | Same schema; hypertable only if the extension exists |
@@ -114,7 +114,7 @@ backend/
   imaging/       render adapters, mask utils, cli        (P3)
 workflows/       ComfyUI API-format workflow JSON        (P3)
 mobile/          Expo app exported from Rork             (P1)
-web/             (later) Vite app                        (P1)
+web/             Vite + React web app (§12)              (P1)
 deploy/          docker-compose.yml, Caddyfile, Dockerfile (P4)
 ```
 
@@ -134,7 +134,7 @@ deploy/          docker-compose.yml, Caddyfile, Dockerfile (P4)
 ```
  ┌──────────────┐   HTTPS JSON + Bearer JWT   ┌───────────────────────────────┐
  │ Mobile (Expo)│ ──────────────────────────▶ │ Django API  (backend/core)    │
- │ Web (later)  │ ◀────────────────────────── │  auth · proposals · media ·   │
+ │ Web (Vite)   │ ◀────────────────────────── │  auth · proposals · media ·   │
  └──────┬───────┘   signed media URLs         │  jobs table · PDF · events    │
         │                                     └──────────────┬────────────────┘
         │ PKCE login                                         │ DB rows (jobs)
@@ -522,14 +522,15 @@ All values come from the environment. Each client has **exactly one** config mod
 | `EXPO_PUBLIC_AUTH0_AUDIENCE` | `https://api.whatif.dev` | |
 | `EXPO_PUBLIC_AUTH0_SCHEME` | `whatif` | redirect scheme |
 | `EXPO_PUBLIC_JOB_POLL_MS` | `2000` | |
+| `EXPO_PUBLIC_MAP_TILE_URL` | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | Map tab tiles (OpenStreetMap via Leaflet in a WebView; no API key) |
 
 If Rork cannot set env vars, `config.ts` holds these values as constants with the same names. It is still the single place to change them. `EXPO_PUBLIC_*` values ship inside the app bundle, so **never put secrets there**.
 
 ### 6.3 Flutter backup (`--dart-define`, read only in `lib/config.dart`)
 `API_MODE`, `API_BASE_URL`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_AUDIENCE`, `AUTH0_SCHEME`, `JOB_POLL_MS`.
 
-### 6.4 Web later (`web/.env`, read only in `web/src/config.ts`)
-`VITE_API_MODE`, `VITE_API_BASE_URL`, `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID` (SPA app), `VITE_AUTH0_AUDIENCE`, `VITE_JOB_POLL_MS`.
+### 6.4 Web (`web/.env`, read only in `web/src/config.ts`)
+`VITE_API_MODE`, `VITE_API_BASE_URL`, `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID` (SPA app), `VITE_AUTH0_AUDIENCE`, `VITE_JOB_POLL_MS`, plus `VITE_MAP_TILE_URL` (Map tab tiles, default OpenStreetMap) and `VITE_GEOCODER_URL` (Nominatim-compatible geocoder; empty disables it).
 
 ### 6.5 Auth0 tenant setup (P4, at kickoff)
 Renaming an existing application's display name does not change its tenant domain,

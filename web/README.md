@@ -1,3 +1,5 @@
+<img src="public/icon.png" alt="WhatIf" width="72" />
+
 # WhatIf — web app
 
 Browser version of the WhatIf mobile app (`mobile/`), per `docs/MASTER_PLAN.md` §12:
@@ -10,7 +12,7 @@ Stack: Vite + React + TypeScript, `react-router-dom`, `@tanstack/react-query`,
 
 ```bash
 cd web
-cp .env.example .env      # fixture mode works with no other changes
+cp ../config/web.env.example .env   # fixture mode works with no other changes
 npm install
 npm run dev               # http://localhost:5173
 npm run build             # type-check + production build into web/dist
@@ -24,8 +26,8 @@ npm run build             # type-check + production build into web/dist
 | `VITE_API_BASE_URL` | Django API, e.g. `http://localhost:8000/api/v1` |
 | `VITE_AUTH0_DOMAIN` / `VITE_AUTH0_CLIENT_ID` / `VITE_AUTH0_AUDIENCE` | Auth0 **SPA** app (§6.5 step 3) |
 | `VITE_JOB_POLL_MS` | job polling interval |
-| `VITE_MAP_TILE_URL` | map tiles (default OpenStreetMap) — web-only, not yet in §6.4 |
-| `VITE_GEOCODER_URL` | Nominatim-compatible geocoder; empty disables it — web-only, not yet in §6.4 |
+| `VITE_MAP_TILE_URL` | map tiles (default OpenStreetMap) |
+| `VITE_GEOCODER_URL` | Nominatim-compatible geocoder; empty disables it |
 
 Sign-in: with `VITE_AUTH0_CLIENT_ID` set, "Sign in" runs the Auth0 redirect
 flow. Add `http://localhost:5173` to the SPA app's Allowed Callback URLs,
@@ -33,7 +35,8 @@ Allowed Logout URLs and Allowed Web Origins. Without a client ID in fixture
 mode, "Sign in" signs into the fixture user so the full flow can be demoed.
 
 Live mode also needs `http://localhost:5173` in the backend's
-`CORS_ALLOWED_ORIGINS` (it is in the default).
+`CORS_ALLOWED_ORIGINS` (`config/backend.env.example` already lists it; the
+setting is empty if unset).
 
 ## Layout
 
@@ -48,6 +51,8 @@ src/ui/         primitives.tsx (RN-like View/Text/Pressable on the DOM) + the
 src/components/ same components as mobile/src/components
 src/screens/    Feed, Map, Create, Mine, Profile, Onboarding, proposal/*
 src/fixtures/   synced by scripts/sync_fixtures.py — do not edit by hand
+public/         favicon.png, icon.png (app icon, from mobile/assets), splash-icon.png,
+                manifest.webmanifest
 ```
 
 Routes match mobile: `/`, `/map`, `/create`, `/mine`, `/profile`, `/onboarding`,

@@ -1,3 +1,5 @@
+<img src="mobile/assets/icon.png" alt="WhatIf" width="96" />
+
 # WhatIf
 
 **WhatIf** turns a photo of a local place into a clearly labeled AI improvement concept, a community proposal people can support, and a downloadable request packet.
@@ -35,7 +37,8 @@ backend/
   imaging/       render adapters, mask utils, cli        (P3)
 workflows/       ComfyUI API-format workflow JSON        (P3)
 mobile/          Expo app exported from Rork             (P1)
-web/             (later) Vite app                        (P1)
+  assets/        icon.png (app icon), adaptive-icon.png, splash-icon.png, favicon.png
+web/             Vite + React web app (same UI as mobile) (P1)
 deploy/          docker-compose.yml, Caddyfile, Dockerfile (P4)
 ```
 
@@ -59,6 +62,26 @@ match. Existing database connections and signing secrets are also retained.
 For an existing Docker database volume, set `POSTGRES_USER` and `POSTGRES_DB`
 to its original account and database names before starting Compose. New local
 databases default to `whatif`; do not recreate an existing volume for the rename.
+
+## Run the web app (dev)
+
+```bash
+cd web
+cp ../config/web.env.example .env   # fixture mode needs nothing else
+npm install
+npm run dev                         # http://localhost:5173
+```
+
+Same screens and design as the mobile app. For live mode set `VITE_API_MODE=live`,
+`VITE_API_BASE_URL`, and an Auth0 **Single Page** app's `VITE_AUTH0_CLIENT_ID`
+(allow `http://localhost:5173` as callback, logout URL and web origin). See
+`web/README.md`.
+
+## Maps
+
+Both apps use OpenStreetMap with Leaflet (the mobile app shows it inside a WebView). No Google or Apple Maps SDK and no API key are needed. Tile server:
+`EXPO_PUBLIC_MAP_TILE_URL` / `VITE_MAP_TILE_URL`. The mobile app turns place names into
+coordinates with the phone's built-in geocoder; the web app uses `VITE_GEOCODER_URL` (Nominatim).
 
 ## Run the backend (dev)
 

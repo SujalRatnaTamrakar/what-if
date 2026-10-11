@@ -6,9 +6,10 @@ from uuid import UUID
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from common.http import err
 from core.models import Job, JobKind, JobStage, JobStatus, Post, PostStatus
@@ -19,6 +20,7 @@ from core.services.posts import assert_no_active_job, assert_revision
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
 def create_generation_job(request, post_id):
     idempotency_key = request.headers.get("Idempotency-Key")
     key_uuid = _parse_idempotency_key(idempotency_key)
@@ -88,12 +90,18 @@ def create_generation_job(request, post_id):
         if post.status == PostStatus.READY:
             post.status = PostStatus.DRAFT
             post.save(update_fields=["status", "updated_at"])
+        if post.prompt != prompt:
+            post.prompt = prompt
+            post.save(update_fields=["prompt", "updated_at"])
         record("generation_requested", post=post, user=request.user)
 
     return Response(
         {"jobId": str(job.id), "postId": str(post.id)},
         status=status.HTTP_202_ACCEPTED,
     )
+
+
+setattr(create_generation_job, "throttle_scope", "generate")
 
 
 @api_view(["GET"])

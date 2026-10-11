@@ -53,6 +53,9 @@ AI_DISCLOSURE = "AI reimagined image — illustrative only."
 PROMPT_PROVIDER = os.getenv("PROMPT_PROVIDER", "fake")
 RENDER_PROVIDER = os.getenv("RENDER_PROVIDER", "fake")
 REVIEW_PROVIDER = os.getenv("REVIEW_PROVIDER", "fake")
+JOB_LEASE_SECONDS = int(os.getenv("JOB_LEASE_SECONDS", "300"))
+JOB_MAX_ATTEMPTS = int(os.getenv("JOB_MAX_ATTEMPTS", "2"))
+WORKER_POLL_SECONDS = float(os.getenv("WORKER_POLL_SECONDS", "1"))
 
 
 # Application definition

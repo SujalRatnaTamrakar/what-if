@@ -14,6 +14,6 @@ urlpatterns = [
     path("me", me, name="me"),
     path("media/<uuid:asset_id>", media, name="media"),
     path("posts", create_post, name="create-post"),
-    path("posts/<uuid:post_id>", get_post, name="get-post"),
+    path("posts/<uuid:post_id>", get_post, name="post-detail"),
     path("posts/<uuid:post_id>/mask", save_mask, name="save-mask"),
 ]

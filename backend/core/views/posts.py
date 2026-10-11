@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
@@ -16,18 +17,60 @@ from core.permissions import get_visible_post_or_404
 from core.serializers import post_payload
 from core.services.events import record
 from core.services.images import sanitize_upload
+from core.services.posts import assert_no_active_job, assert_revision
 
 
 LOCATION_SOURCES = {"gps", "exif", "manual", "none"}
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def get_post(request, post_id):
+    if request.method != "GET":
+        return _mutate_post(request, post_id)
     viewer = request.user if getattr(request.user, "is_authenticated", False) else None
     post = get_visible_post_or_404(post_id, viewer)
     lat, lng = _coordinates(request.query_params)
     viewer_coords = (lat, lng) if lat is not None and lng is not None else None
     return Response(post_payload(post, viewer, viewer_coords))
+
+
+def _mutate_post(request, post_id):
+    with transaction.atomic():
+        post = (
+            Post.objects.select_for_update()
+            .select_related("owner", "source")
+            .filter(id=post_id, owner=request.user)
+            .exclude(status=PostStatus.REMOVED)
+            .first()
+        )
+        if post is None:
+            err("NOT_FOUND", status.HTTP_404_NOT_FOUND, "Post not found.")
+
+        if request.method == "DELETE":
+            post.status = PostStatus.REMOVED
+            post.save(update_fields=["status", "updated_at"])
+            record("post_deleted", post=post, user=request.user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        assert_no_active_job(post)
+        expected_revision = _expected_revision(request.data.get("expectedRevision"))
+        assert_revision(post, expected_revision)
+        _update_post_fields(post, request.data)
+        post.revision += 1
+        post.save(
+            update_fields=[
+                "title",
+                "title_user_edited",
+                "prompt",
+                "place_label",
+                "revision",
+                "updated_at",
+            ]
+        )
+        record("post_updated", post=post, user=request.user)
+
+    return Response(post_payload(post, request.user))
 
 
 @api_view(["POST"])
@@ -158,6 +201,92 @@ def _optional_float(value: Any, field: str) -> float | None:
             fields={field: ["Use a numeric value."]},
         )
     return number
+
+
+def _expected_revision(value: Any) -> int:
+    if isinstance(value, bool):
+        _invalid_revision()
+    try:
+        revision = int(value)
+    except (TypeError, ValueError):
+        _invalid_revision()
+    if revision < 1:
+        _invalid_revision()
+    return revision
+
+
+def _invalid_revision() -> NoReturn:
+    err(
+        "VALIDATION_ERROR",
+        status.HTTP_400_BAD_REQUEST,
+        "expectedRevision must be a positive integer.",
+        fields={"expectedRevision": ["Use a positive integer."]},
+    )
+
+
+def _update_post_fields(post: Post, data: Any) -> None:
+    editable_fields = {"title", "prompt", "placeLabel"}
+    unknown_fields = set(data.keys()) - {"expectedRevision"} - editable_fields
+    if unknown_fields:
+        field = sorted(unknown_fields)[0]
+        err(
+            "VALIDATION_ERROR",
+            status.HTTP_400_BAD_REQUEST,
+            f"{field} is not editable.",
+            fields={field: ["This field is not editable."]},
+        )
+
+    if "title" in data:
+        title = data["title"]
+        if not isinstance(title, str) or len(title) > 120:
+            err(
+                "VALIDATION_ERROR",
+                status.HTTP_400_BAD_REQUEST,
+                "title must be 120 characters or fewer.",
+                fields={"title": ["Use 120 characters or fewer."]},
+            )
+        post.title = title.strip()
+        post.title_user_edited = True
+    elif post.status == PostStatus.PUBLISHED and (
+        "prompt" in data or "placeLabel" in data
+    ):
+        err(
+            "INVALID_STATE",
+            status.HTTP_409_CONFLICT,
+            "Only the title can be edited after publishing.",
+        )
+
+    if "prompt" in data:
+        prompt = data["prompt"]
+        if (
+            not isinstance(prompt, str)
+            or not settings.PROMPT_MIN_CHARS
+            <= len(prompt.strip())
+            <= settings.PROMPT_MAX_CHARS
+        ):
+            err(
+                "VALIDATION_ERROR",
+                status.HTTP_400_BAD_REQUEST,
+                "prompt length is invalid.",
+                fields={
+                    "prompt": [
+                        f"Use between {settings.PROMPT_MIN_CHARS} "
+                        f"and {settings.PROMPT_MAX_CHARS} characters."
+                    ]
+                },
+            )
+        post.prompt = prompt.strip()
+
+    if "placeLabel" in data:
+        place_label = data["placeLabel"]
+        if not isinstance(place_label, str) or len(place_label) > 120:
+            err(
+                "VALIDATION_ERROR",
+                status.HTTP_400_BAD_REQUEST,
+                "placeLabel must be 120 characters or fewer.",
+                fields={"placeLabel": ["Use 120 characters or fewer."]},
+            )
+        post.place_label = place_label.strip()
 
 
 setattr(create_post, "throttle_scope", "upload")

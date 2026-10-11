@@ -1,0 +1,870 @@
+openapi: 3.1.0
+info:
+  title: WhatIf API
+  version: "1"
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /config:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Public runtime configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicConfig"
+  /me:
+    get:
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/StandardError"
+    patch:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  minLength: 2
+                  maxLength: 40
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/StandardError"
+  /posts:
+    post:
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo, consent]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                placeLabel:
+                  type: string
+                  maxLength: 120
+                lat:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                lng:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                locationSource:
+                  $ref: "#/components/schemas/LocationSource"
+                locationAccuracyM:
+                  type: number
+                consent:
+                  type: string
+                  enum: ["true"]
+      responses:
+        "201":
+          description: Created draft post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        default:
+          $ref: "#/components/responses/StandardError"
+  /posts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    get:
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/Latitude"
+        - $ref: "#/components/parameters/Longitude"
+      responses:
+        "200":
+          description: Post details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        default:
+          $ref: "#/components/responses/StandardError"
+    patch:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision]
+              properties:
+                expectedRevision:
+                  type: integer
+                  minimum: 1
+                title:
+                  type: string
+                  maxLength: 120
+                prompt:
+                  type: string
+                  minLength: 5
+                  maxLength: 300
+                placeLabel:
+                  type: string
+                  maxLength: 120
+      responses:
+        "200":
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        default:
+          $ref: "#/components/responses/StandardError"
+    delete:
+      responses:
+        "204":
+          description: Post deleted
+        default:
+          $ref: "#/components/responses/StandardError"
+  /media/{assetId}:
+    get:
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+        - name: exp
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: sig
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Media bytes
+          content:
+            image/*: {}
+        default:
+          $ref: "#/components/responses/StandardError"
+  /posts/{id}/mask:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaskRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MaskPngRequest"
+      responses:
+        "201":
+          description: Saved mask
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaskSaved"
+  /posts/{id}/generate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateRequest"
+      responses:
+        "202":
+          description: Generation job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateAccepted"
+  /jobs/{id}:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+  /posts/{id}/publish:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision]
+              properties:
+                expectedRevision:
+                  type: integer
+                acknowledgedFlagIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Published post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+  /feed:
+    get:
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: tab
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/FeedTab"
+        - name: sort
+          in: query
+          schema:
+            $ref: "#/components/schemas/FeedSort"
+        - $ref: "#/components/parameters/Latitude"
+        - $ref: "#/components/parameters/Longitude"
+        - name: radiusKm
+          in: query
+          schema:
+            type: number
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Feed page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostSummaryPage"
+  /me/posts:
+    get:
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [draft, published]
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: User post page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostSummaryPage"
+  /posts/{id}/vote:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  $ref: "#/components/schemas/VoteValue"
+      responses:
+        "200":
+          description: Updated vote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteResult"
+  /posts/{id}/comments:
+    get:
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+        - name: sort
+          in: query
+          schema:
+            $ref: "#/components/schemas/CommentSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Comment page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentPage"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                parentId:
+                  type: [string, "null"]
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+  /comments/{id}:
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: Deleted comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+  /posts/{id}/report:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportRequest"
+      responses:
+        "201":
+          description: Report accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: {type: boolean, const: true}
+  /comments/{id}/vote:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentVoteRequest"
+      responses:
+        "200":
+          description: Updated comment vote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentVoteResult"
+  /stats:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Aggregate project statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PostId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    CommentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Latitude:
+      name: lat
+      in: query
+      schema:
+        type: number
+        minimum: -90
+        maximum: 90
+    Longitude:
+      name: lng
+      in: query
+      schema:
+        type: number
+        minimum: -180
+        maximum: 180
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+  responses:
+    StandardError:
+      description: Standard WhatIf API error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    Health:
+      type: object
+      required: [ok, db]
+      properties:
+        ok: {type: boolean}
+        db: {type: boolean}
+    PostStatus:
+      type: string
+      enum: [draft, ready, published, removed]
+    AssetKind:
+      type: string
+      enum: [source, mask, concept]
+    LocationSource:
+      type: string
+      enum: [gps, exif, manual, none]
+    JobKind:
+      type: string
+      enum: [generate]
+    JobStatus:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    JobStage:
+      type: string
+      enum: [queued, moderate, prompt, render, review, title, finalize, done]
+    ReviewVerdict:
+      type: string
+      enum: [clear, needs_review, blocked]
+    FlagSeverity:
+      type: string
+      enum: [info, warning, blocking]
+    Provider:
+      type: string
+      enum: [ollama, gemini, comfyui, gemini_image, xai_image, fake]
+    FeedTab:
+      type: string
+      enum: [local, global]
+    FeedSort:
+      type: string
+      enum: [hot, new, top]
+    VoteValue:
+      type: integer
+      enum: [-1, 0, 1]
+    CommentSort:
+      type: string
+      enum: [old, new]
+    Asset:
+      type: object
+      required: [id, kind, width, height, mimeType, sha256, url, urlExpiresAt]
+      additionalProperties: true
+      properties:
+        id: {type: string}
+        kind: {$ref: "#/components/schemas/AssetKind"}
+        width: {type: integer}
+        height: {type: integer}
+        mimeType: {type: string}
+        sha256: {type: string}
+        url: {type: string, format: uri}
+        urlExpiresAt: {type: string, format: date-time}
+    Location:
+      type: object
+      required: [lat, lng, source]
+      properties:
+        lat: {type: number, minimum: -90, maximum: 90}
+        lng: {type: number, minimum: -180, maximum: 180}
+        source: {$ref: "#/components/schemas/LocationSource"}
+    Author:
+      type: object
+      required: [displayName, isViewer]
+      properties:
+        displayName: {type: string}
+        isViewer: {type: boolean}
+    ErrorBody:
+      type: object
+      required: [code, message, retryable, fieldErrors]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        retryable: {type: boolean}
+        fieldErrors:
+          type: object
+          additionalProperties: true
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: {$ref: "#/components/schemas/ErrorBody"}
+    Job:
+      type: object
+      required: [id, postId, kind, status, stage, attempt, createdAt, updatedAt, error]
+      additionalProperties: true
+      properties:
+        id: {type: string}
+        postId: {type: string}
+        kind: {$ref: "#/components/schemas/JobKind"}
+        status: {$ref: "#/components/schemas/JobStatus"}
+        stage: {$ref: "#/components/schemas/JobStage"}
+        attempt: {type: integer}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        error:
+          type: [object, "null"]
+    Flag:
+      type: object
+      required: [id, code, severity, message]
+      properties:
+        id: {type: string}
+        code: {type: string}
+        severity: {$ref: "#/components/schemas/FlagSeverity"}
+        message: {type: string}
+    Review:
+      type: object
+      required: [verdict, flags, outsideMaskChange, provider, model, reviewedAt]
+      properties:
+        verdict: {$ref: "#/components/schemas/ReviewVerdict"}
+        flags:
+          type: array
+          items: {$ref: "#/components/schemas/Flag"}
+        outsideMaskChange:
+          type: [number, "null"]
+        provider: {$ref: "#/components/schemas/Provider"}
+        model: {type: string}
+        reviewedAt: {type: string, format: date-time}
+    Generation:
+      type: object
+      required: [provider, model, seed, durationMs, workflowVersion, prompt, createdAt]
+      properties:
+        provider: {$ref: "#/components/schemas/Provider"}
+        model: {type: string}
+        seed: {type: [integer, "null"]}
+        durationMs: {type: integer}
+        workflowVersion: {type: string}
+        prompt: {type: string}
+        createdAt: {type: string, format: date-time}
+    Post:
+      type: object
+      required: [id, revision, status, createdAt, updatedAt, publishedAt, author, title, prompt, placeLabel, location, distanceKm, source, concept, maskAssetId, review, generation, activeJob, aiDisclosure, score, upvotes, downvotes, viewerVote, commentCount]
+      additionalProperties: true
+      properties:
+        id: {type: string}
+        revision: {type: integer}
+        status: {$ref: "#/components/schemas/PostStatus"}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        publishedAt: {type: [string, "null"], format: date-time}
+        author: {$ref: "#/components/schemas/Author"}
+        title: {type: string}
+        prompt: {type: string}
+        placeLabel: {type: string}
+        location:
+          oneOf:
+            - {$ref: "#/components/schemas/Location"}
+            - {type: "null"}
+        distanceKm: {type: [number, "null"]}
+        source: {$ref: "#/components/schemas/Asset"}
+        concept:
+          oneOf:
+            - {$ref: "#/components/schemas/Asset"}
+            - {type: "null"}
+        maskAssetId: {type: [string, "null"]}
+        review:
+          oneOf:
+            - {$ref: "#/components/schemas/Review"}
+            - {type: "null"}
+        generation:
+          oneOf:
+            - {$ref: "#/components/schemas/Generation"}
+            - {type: "null"}
+        activeJob:
+          oneOf:
+            - {$ref: "#/components/schemas/Job"}
+            - {type: "null"}
+        aiDisclosure: {type: string}
+        score: {type: integer}
+        upvotes: {type: integer}
+        downvotes: {type: integer}
+        viewerVote: {$ref: "#/components/schemas/VoteValue"}
+        commentCount: {type: integer}
+    PostSummary:
+      type: object
+      required: [id, status, title, promptPreview, placeLabel, location, distanceKm, publishedAt, updatedAt, sourceThumbUrl, conceptThumbUrl, score, viewerVote, commentCount, author]
+      additionalProperties: true
+      properties:
+        id: {type: string}
+        status: {$ref: "#/components/schemas/PostStatus"}
+        title: {type: string}
+        promptPreview: {type: string, maxLength: 140}
+        placeLabel: {type: string}
+        location:
+          oneOf:
+            - {$ref: "#/components/schemas/Location"}
+            - {type: "null"}
+        distanceKm: {type: [number, "null"]}
+        publishedAt: {type: [string, "null"], format: date-time}
+        updatedAt: {type: string, format: date-time}
+        sourceThumbUrl: {type: string, format: uri}
+        conceptThumbUrl: {type: [string, "null"], format: uri}
+        score: {type: integer}
+        viewerVote: {$ref: "#/components/schemas/VoteValue"}
+        commentCount: {type: integer}
+        author: {$ref: "#/components/schemas/Author"}
+    Me:
+      type: object
+      required: [id, displayName, createdAt]
+      properties:
+        id: {type: string}
+        displayName: {type: string, minLength: 2, maxLength: 40}
+        createdAt: {type: string, format: date-time}
+    PublicConfig:
+      type: object
+      required: [apiVersion, maxUploadBytes, maxImageEdge, promptMinChars, promptMaxChars, localRadiusKm, localRadiusMaxKm, aiDisclosure, providers]
+      properties:
+        apiVersion: {type: string}
+        maxUploadBytes: {type: integer}
+        maxImageEdge: {type: integer}
+        promptMinChars: {type: integer}
+        promptMaxChars: {type: integer}
+        localRadiusKm: {type: number}
+        localRadiusMaxKm: {type: number}
+        aiDisclosure: {type: string}
+        providers:
+          type: object
+          required: [prompt, render, review]
+          properties:
+            prompt: {$ref: "#/components/schemas/Provider"}
+            render: {$ref: "#/components/schemas/Provider"}
+            review: {$ref: "#/components/schemas/Provider"}
+    PostSummaryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/PostSummary"}
+        nextCursor: {type: [string, "null"]}
+    Comment:
+      type: object
+      required: [id, postId, parentId, author, body, createdAt, isDeleted, replyCount]
+      properties:
+        id: {type: string}
+        postId: {type: string}
+        parentId: {type: [string, "null"]}
+        author: {$ref: "#/components/schemas/Author"}
+        body: {type: string}
+        createdAt: {type: string, format: date-time}
+        isDeleted: {type: boolean}
+        replyCount: {type: integer}
+    CommentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Comment"}
+        nextCursor: {type: [string, "null"]}
+    VoteResult:
+      type: object
+      required: [postId, score, upvotes, downvotes, viewerVote]
+      properties:
+        postId: {type: string}
+        score: {type: integer}
+        upvotes: {type: integer}
+        downvotes: {type: integer}
+        viewerVote: {$ref: "#/components/schemas/VoteValue"}
+    MaskRequest:
+      type: object
+      required: [expectedRevision, strokes]
+      properties:
+        expectedRevision: {type: integer}
+        strokes:
+          $ref: "#/components/schemas/MaskStrokes"
+    MaskPngRequest:
+      type: object
+      required: [expectedRevision, mask]
+      properties:
+        expectedRevision: {type: integer}
+        mask:
+          type: string
+          format: binary
+    MaskStrokes:
+      type: object
+      required: [version, strokes]
+      properties:
+        version: {type: integer, const: 1}
+        strokes:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [mode, width, points]
+            properties:
+              mode:
+                type: string
+                enum: [paint, erase]
+              width:
+                type: number
+                exclusiveMinimum: 0
+                maximum: 1
+              points:
+                type: array
+                maxItems: 5000
+                items:
+                  type: array
+                  minItems: 2
+                  maxItems: 2
+                  items:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+    MaskSaved:
+      type: object
+      required: [assetId, revision]
+      properties:
+        assetId: {type: string}
+        revision: {type: integer}
+    GenerateRequest:
+      type: object
+      required: [expectedRevision, prompt, maskAssetId]
+      properties:
+        expectedRevision: {type: integer}
+        prompt: {type: string, minLength: 5, maxLength: 300}
+        maskAssetId: {type: string}
+    GenerateAccepted:
+      type: object
+      required: [jobId, postId]
+      properties:
+        jobId: {type: string}
+        postId: {type: string}
+    ReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [spam, offensive, private_info, other]
+        note:
+          type: string
+          maxLength: 1000
+    CommentVoteRequest:
+      type: object
+      required: [value]
+      properties:
+        value:
+          $ref: "#/components/schemas/VoteValue"
+    CommentVoteResult:
+      type: object
+      required: [commentId, score, viewerVote]
+      properties:
+        commentId: {type: string}
+        score: {type: integer}
+        viewerVote:
+          $ref: "#/components/schemas/VoteValue"
+    Stats:
+      type: object
+      required: [postsPublished, votesLast24h, topPlaces]
+      properties:
+        postsPublished: {type: integer}
+        votesLast24h:
+          type: array
+          items:
+            type: object
+            required: [bucket, count]
+            properties:
+              bucket: {type: string, format: date-time}
+              count: {type: integer}
+        topPlaces:
+          type: array
+          items:
+            type: object
+            required: [placeLabel, count]
+            properties:
+              placeLabel: {type: string}
+              count: {type: integer}

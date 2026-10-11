@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "REVISION_CONFLICT",
+    "message": "This post changed. Reload it.",
+    "retryable": false,
+    "fieldErrors": {}
+  }
+}

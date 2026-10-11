@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "AUTH_REQUIRED",
+    "message": "Authentication credentials were not provided.",
+    "retryable": false,
+    "fieldErrors": {}
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
+    "expo": "~57.0.0",
+    "expo-auth-session": "^57.0.14",
+    "expo-crypto": "^57.0.3",
+    "expo-file-system": "^57.0.7",
+    "expo-image": "^57.0.5",
+    "expo-image-picker": "^57.0.20",
+    "expo-router": "^57.0.25",
+    "expo-secure-store": "^57.0.4",
+    "expo-sharing": "^57.0.22",
+    "expo-web-browser": "^57.0.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-svg": "15.15.4"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  },
+  "main": "expo-router/entry",
+  "name": "placepatch-mobile",
+  "private": true,
+  "scripts": {
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "start": "expo start",
+    "typecheck": "tsc --noEmit",
+    "web": "expo start --web"
+  },
+  "version": "1.0.0"
+}

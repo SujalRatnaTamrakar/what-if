@@ -16,6 +16,8 @@ export const config = {
   auth0Audience: process.env.EXPO_PUBLIC_AUTH0_AUDIENCE || "https://api.whatif.dev",
   auth0Scheme: process.env.EXPO_PUBLIC_AUTH0_SCHEME || "whatif",
   jobPollMs: parseInt(process.env.EXPO_PUBLIC_JOB_POLL_MS || "2000", 10),
+  /** OpenStreetMap-style tile template for the Map tab ({z}/{x}/{y}). */
+  mapTileUrl: process.env.EXPO_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   appVersion: "1.0.0",
 };
 

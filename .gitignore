@@ -1,0 +1,15 @@
+.env
+*.env
+!*.env.example
+
+backend/.venv/
+backend/media/
+backend/db.sqlite3
+mobile/.expo/
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+*.ckpt
+*.safetensors

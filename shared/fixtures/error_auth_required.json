@@ -1,8 +1,1 @@
-{
-  "error": {
-    "code": "AUTH_REQUIRED",
-    "message": "Authentication credentials were not provided.",
-    "retryable": false,
-    "fieldErrors": {}
-  }
-}
+{"error":{"code":"AUTH_REQUIRED","message":"Sign in to continue.","retryable":false}}

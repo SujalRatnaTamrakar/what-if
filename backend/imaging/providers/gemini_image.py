@@ -1,49 +1,116 @@
+"""Gemini image-edit fallback provider (§11.5).
+
+Sends the source plus an instruction (and a red-overlay guide image marking
+the mask region). The §11.4 step-4 composite is applied by
+``imaging.render_edit`` for every provider, which enforces locality even
+though the model has no mask input.
+
+Env:
+  GEMINI_API_KEY     (required; sent as a query param — hackathon-grade, do not
+                      log it)
+  GEMINI_IMAGE_MODEL default gemini-2.0-flash-preview-image-generation
+"""
+
+from __future__ import annotations
+
+import base64
 import io
 import os
+from pathlib import Path
 
+import httpx
 from PIL import Image
 
-from .._errors import ProviderTimeout, ProviderUnavailable, RenderFailed
-from ..types import ProviderOutput, prompt_field
+from ..errors import (
+    InvalidProviderOutput,
+    ProviderTimeout,
+    ProviderUnavailable,
+    RenderFailed,
+)
+
+WORKFLOW_VERSION = "gemini_composite_v1"
 
 
-class GeminiImageProvider:
-    """No real mask input: we send a red-highlighted guide, then core.composite() enforces locality."""
+def _model() -> str:
+    return os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-preview-image-generation")
 
-    def edit(self, source, mask, prompt, *, seed, timeout_s):
-        key = os.environ.get("GEMINI_API_KEY")
-        model = os.environ.get("GEMINI_IMAGE_MODEL")
-        if not key or not model:
-            raise ProviderUnavailable("GEMINI_API_KEY and GEMINI_IMAGE_MODEL must be set")
-        try:
-            from google import genai
-            from google.genai import types
-        except ImportError:
-            raise ProviderUnavailable("google-genai is not installed")
 
-        guide = source.convert("RGB").copy()
-        red = Image.new("RGB", guide.size, (255, 0, 0))
-        guide.paste(Image.blend(guide, red, 0.45), mask=mask)
+def _b64_png(img: Image.Image) -> str:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
-        goal = prompt_field(prompt, "editGoal") or prompt_field(prompt, "positive")
-        text = (f"Image 1 is the original photo. Image 2 is the same photo with the edit region tinted red. "
-                f"Edit image 1: {goal}. Make the change only inside the red region, photorealistic, matching lighting "
-                f"and perspective. Do not include any red tint. Keep everything else identical and keep the same framing. "
-                f"Return the full edited image.")
-        try:
-            client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
-            resp = client.models.generate_content(model=model, contents=[text, source.convert("RGB"), guide])
-        except Exception as e:  # map SDK errors to contract codes
-            msg = str(e).lower()
-            if "timeout" in msg or "deadline" in msg:
-                raise ProviderTimeout(f"Gemini image timed out: {e}")
-            if any(t in msg for t in ("429", "503", "500", "unavailable", "quota", "connect")):
-                raise ProviderUnavailable(f"Gemini image unavailable: {e}")
-            raise RenderFailed(f"Gemini image error: {e}")
 
-        for cand in (resp.candidates or []):
-            for part in (cand.content.parts or []):
-                if getattr(part, "inline_data", None) and part.inline_data.data:
-                    img = Image.open(io.BytesIO(part.inline_data.data)).convert("RGB").resize(source.size, Image.LANCZOS)
-                    return ProviderOutput(img, "gemini_image", model, None, "gemini_composite_v1")
-        raise RenderFailed("Gemini returned no image")
+def _guide_image(source: Image.Image, mask: Image.Image) -> Image.Image:
+    """Source with a translucent red overlay on the mask region."""
+    s = source.convert("RGBA")
+    m = mask.convert("L").resize(s.size, Image.NEAREST)
+    red = Image.new("RGBA", s.size, (255, 0, 0, 90))
+    return Image.composite(red, s, m).convert("RGB")
+
+
+def render_at_work_size(
+    work_source: Path, work_mask: Path, prompt, *, seed: int, timeout_s: int
+):
+    """Render via the Gemini image model. Returns (edited PIL image, model)."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ProviderUnavailable("GEMINI_API_KEY is not set")
+    model = _model()
+
+    source = Image.open(work_source).convert("RGB")
+    mask = Image.open(work_mask).convert("L")
+    guide = _guide_image(source, mask)
+
+    instruction = (
+        f"Edit this photo: {prompt.editGoal or prompt.positive}. "
+        "Add the change ONLY inside the region outlined in red in the second "
+        "(guide) image. Keep every pixel outside that region exactly identical "
+        "to the first image — same lighting, perspective and materials. "
+        "Photorealistic daytime street photo. "
+        f"Preserve: {', '.join(prompt.preserve) if prompt.preserve else 'everything else'}. "
+        "Do not add text, watermarks, people, cars, or extra objects."
+    )
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": instruction},
+                    {"inline_data": {"mime_type": "image/png", "data": _b64_png(source)}},
+                    {"inline_data": {"mime_type": "image/png", "data": _b64_png(guide)}},
+                ]
+            }
+        ],
+        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+    }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    try:
+        r = httpx.post(url, params={"key": api_key}, json=body, timeout=float(timeout_s))
+    except httpx.ConnectError as e:
+        raise ProviderUnavailable(f"cannot reach Gemini API: {e}")
+    except httpx.TimeoutException as e:
+        raise ProviderTimeout(f"Gemini image request timed out: {e}")
+
+    if r.status_code == 429:
+        raise ProviderUnavailable(f"Gemini rate limited (429): {r.text[:200]}")
+    if r.status_code in (401, 403):
+        raise ProviderUnavailable(f"Gemini auth failed ({r.status_code}) — check GEMINI_API_KEY")
+    if r.status_code != 200:
+        raise RenderFailed(f"Gemini image -> HTTP {r.status_code}: {r.text[:300]}")
+
+    try:
+        data = r.json()
+    except Exception as e:
+        raise InvalidProviderOutput(f"Gemini returned non-JSON: {e}")
+    for cand in data.get("candidates", []):
+        for part in cand.get("content", {}).get("parts", []):
+            inline = part.get("inlineData") or part.get("inline_data")
+            if inline and inline.get("data"):
+                try:
+                    img = Image.open(io.BytesIO(base64.b64decode(inline["data"]))).convert("RGB")
+                except Exception as e:
+                    raise InvalidProviderOutput(f"Gemini image payload undecodable: {e}")
+                return img, model
+    raise InvalidProviderOutput(
+        f"Gemini returned no image part: {str(data)[:300]}"
+    )

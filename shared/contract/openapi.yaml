@@ -1,44 +1,68 @@
 openapi: 3.1.0
 info:
-  title: WhatIf API
+  title: PlacePatch API
   version: "1"
+  description: |
+    PlacePatch turns a photo of a local place into a clearly labeled AI improvement
+    concept, a community proposal people can support, and a downloadable request packet.
+    Single source of truth: docs/MASTER_PLAN.md §5. Do not rename fields, routes,
+    enum values or error codes without the §15 change-control process.
 servers:
-  - url: /api/v1
+  - url: https://api.placepatch.example/api/v1
+    description: Placeholder. Real base URL comes from config (PUBLIC_BASE_URL + /api/v1).
 security:
   - bearerAuth: []
+tags:
+  - name: system
+  - name: identity
+  - name: proposals
+  - name: jobs
+  - name: media
 paths:
   /health:
     get:
+      operationId: health
+      tags: [system]
+      summary: E1 — liveness check
       security: []
       responses:
         "200":
-          description: Health status
+          description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Health"
+                $ref: "#/components/schemas/HealthResponse"
   /config:
     get:
+      operationId: getConfig
+      tags: [system]
+      summary: E2 — public configuration
       security: []
       responses:
         "200":
-          description: Public runtime configuration
+          description: PublicConfig
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicConfig"
   /me:
     get:
+      operationId: getMe
+      tags: [identity]
+      summary: E3 — current user (creates on first call)
       responses:
         "200":
-          description: Current user
+          description: Me
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Me"
-        default:
-          $ref: "#/components/responses/StandardError"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
     patch:
+      operationId: updateMe
+      tags: [identity]
+      summary: E4 — update display name
       requestBody:
         required: true
         content:
@@ -49,77 +73,144 @@ paths:
               properties:
                 displayName:
                   type: string
-                  minLength: 2
+                  minLength: 1
                   maxLength: 40
       responses:
         "200":
-          description: Updated user
+          description: Me
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Me"
-        default:
-          $ref: "#/components/responses/StandardError"
-  /posts:
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+  /proposals:
     post:
+      operationId: createProposal
+      tags: [proposals]
+      summary: E5 — create proposal with photo; enqueues scene job
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [photo, consent]
+              required: [photo, placeLabel, problemText, category, consent]
               properties:
                 photo:
                   type: string
                   format: binary
+                  description: JPEG, PNG, HEIC or WEBP. Max MAX_UPLOAD_BYTES.
                 placeLabel:
                   type: string
+                  minLength: 3
                   maxLength: 120
-                lat:
-                  type: number
-                  minimum: -90
-                  maximum: 90
-                lng:
-                  type: number
-                  minimum: -180
-                  maximum: 180
-                locationSource:
-                  $ref: "#/components/schemas/LocationSource"
-                locationAccuracyM:
-                  type: number
+                problemText:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+                category:
+                  $ref: "#/components/schemas/Category"
                 consent:
                   type: string
                   enum: ["true"]
+                  description: Must be the string "true".
       responses:
         "201":
-          description: Created draft post
+          description: Created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Post"
-        default:
-          $ref: "#/components/responses/StandardError"
-  /posts/{id}:
-    parameters:
-      - $ref: "#/components/parameters/PostId"
+                $ref: "#/components/schemas/ProposalCreateResponse"
+        "400":
+          description: VALIDATION_ERROR or CONSENT_REQUIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "413":
+          description: IMAGE_TOO_LARGE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "415":
+          description: UNSUPPORTED_IMAGE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
     get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: E6 — list proposals (public feed or mine)
       security:
         - bearerAuth: []
         - {}
       parameters:
-        - $ref: "#/components/parameters/Latitude"
-        - $ref: "#/components/parameters/Longitude"
+        - name: scope
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [public, mine]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
       responses:
         "200":
-          description: Post details
+          description: Page of ProposalSummary
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Post"
-        default:
-          $ref: "#/components/responses/StandardError"
+                $ref: "#/components/schemas/ProposalListPage"
+        "401":
+          description: scope=mine without auth
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: E7 — proposal detail (owner, or anyone if published)
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      responses:
+        "200":
+          description: Proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "404":
+          description: Not found, or someone else's draft (never 403)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
     patch:
+      operationId: updateProposal
+      tags: [proposals]
+      summary: E8 — patch draft (optimistic concurrency via expectedRevision)
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
       requestBody:
         required: true
         content:
@@ -134,33 +225,370 @@ paths:
                 title:
                   type: string
                   maxLength: 120
-                prompt:
+                changeRequest:
                   type: string
-                  minLength: 5
-                  maxLength: 300
+                  maxLength: 1500
                 placeLabel:
                   type: string
+                  minLength: 3
                   maxLength: 120
+                recipientLabel:
+                  type: string
+                  maxLength: 120
+                selectedOptionId:
+                  type: string
       responses:
         "200":
-          description: Updated post
+          description: Updated proposal (rev+1)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Post"
-        default:
-          $ref: "#/components/responses/StandardError"
-    delete:
+                $ref: "#/components/schemas/Proposal"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: REVISION_CONFLICT, INVALID_STATE or JOB_IN_PROGRESS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}/analyze:
+    post:
+      operationId: reanalyze
+      tags: [proposals]
+      summary: E9 — re-run scene analysis after a failure
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision]
+              properties:
+                expectedRevision:
+                  type: integer
+                  minimum: 1
       responses:
-        "204":
-          description: Post deleted
-        default:
-          $ref: "#/components/responses/StandardError"
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAccepted"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: JOB_IN_PROGRESS or INVALID_STATE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: PROVIDER_UNAVAILABLE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}/mask:
+    post:
+      operationId: saveMask
+      tags: [proposals]
+      summary: E10 — save brush mask (strokes JSON, or PNG upload)
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision, strokes]
+              properties:
+                expectedRevision:
+                  type: integer
+                  minimum: 1
+                strokes:
+                  $ref: "#/components/schemas/MaskStrokes"
+          multipart/form-data:
+            schema:
+              type: object
+              required: [mask, expectedRevision]
+              properties:
+                mask:
+                  type: string
+                  format: binary
+                  description: PNG at exactly source size; pixels >=128 count as edit.
+                expectedRevision:
+                  type: integer
+                  minimum: 1
+      responses:
+        "201":
+          description: Mask saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaskSaved"
+        "400":
+          description: MASK_EMPTY, MASK_TOO_LARGE, MASK_SIZE_MISMATCH or VALIDATION_ERROR
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: REVISION_CONFLICT, INVALID_STATE or JOB_IN_PROGRESS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}/preview:
+    post:
+      operationId: requestPreview
+      tags: [proposals]
+      summary: E11 — enqueue preview job (prompt → render → review → draft → finalize)
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Client-generated UUID. Repeating the same key for the same proposal returns the original job.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [optionId, maskAssetId, expectedRevision]
+              properties:
+                optionId:
+                  type: string
+                maskAssetId:
+                  type: string
+                expectedRevision:
+                  type: integer
+                  minimum: 1
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAccepted"
+        "400":
+          description: VALIDATION_ERROR
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: JOB_IN_PROGRESS or REVISION_CONFLICT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}/publish:
+    post:
+      operationId: publishProposal
+      tags: [proposals]
+      summary: E13 — publish (approvals + flag acknowledgment gate)
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision, approveText, approveConcept, acknowledgedFlagIds]
+              properties:
+                expectedRevision:
+                  type: integer
+                  minimum: 1
+                approveText:
+                  type: boolean
+                approveConcept:
+                  type: boolean
+                acknowledgedFlagIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Published proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "400":
+          description: APPROVAL_REQUIRED or VALIDATION_ERROR
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: REVIEW_BLOCKED, FLAGS_NOT_ACKNOWLEDGED, INVALID_STATE or REVISION_CONFLICT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}/support:
+    post:
+      operationId: supportProposal
+      tags: [proposals]
+      summary: E14 — support a published proposal (idempotent)
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      responses:
+        "200":
+          description: SupportResult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportResult"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: INVALID_STATE (not published)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      operationId: unsupportProposal
+      tags: [proposals]
+      summary: E15 — remove support (stretch)
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      responses:
+        "200":
+          description: SupportResult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportResult"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /proposals/{id}/packet:
+    post:
+      operationId: exportPacket
+      tags: [proposals]
+      summary: E16 — export one-page PDF request packet (published only)
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      responses:
+        "200":
+          description: Packet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Packet"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: INVALID_STATE (not published)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: E12 — job status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /media/{assetId}:
     get:
+      operationId: getMedia
+      tags: [media]
+      summary: E17 — signed media bytes
       security: []
       parameters:
-        - $ref: "#/components/parameters/AssetId"
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
         - name: exp
           in: query
           required: true
@@ -173,698 +601,664 @@ paths:
             type: string
       responses:
         "200":
-          description: Media bytes
+          description: File bytes
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "private, max-age=300"
           content:
-            image/*: {}
-        default:
-          $ref: "#/components/responses/StandardError"
-  /posts/{id}/mask:
-    post:
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MaskRequest"
-          multipart/form-data:
-            schema:
-              $ref: "#/components/schemas/MaskPngRequest"
-      responses:
-        "201":
-          description: Saved mask
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: SIGNATURE_INVALID or expired
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MaskSaved"
-  /posts/{id}/generate:
-    post:
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenerateRequest"
-      responses:
-        "202":
-          description: Generation job accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenerateAccepted"
-  /jobs/{id}:
+                $ref: "#/components/schemas/ErrorBody"
+  /packets/{packetId}.pdf:
     get:
+      operationId: getPacketPdf
+      tags: [media]
+      summary: E18 — signed packet PDF bytes
+      security: []
       parameters:
-        - $ref: "#/components/parameters/JobId"
-      responses:
-        "200":
-          description: Job status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Job"
-  /posts/{id}/publish:
-    post:
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [expectedRevision]
-              properties:
-                expectedRevision:
-                  type: integer
-                acknowledgedFlagIds:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        "200":
-          description: Published post
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Post"
-  /feed:
-    get:
-      security:
-        - bearerAuth: []
-        - {}
-      parameters:
-        - name: tab
+        - name: packetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: exp
           in: query
           required: true
           schema:
-            $ref: "#/components/schemas/FeedTab"
-        - name: sort
-          in: query
-          schema:
-            $ref: "#/components/schemas/FeedSort"
-        - $ref: "#/components/parameters/Latitude"
-        - $ref: "#/components/parameters/Longitude"
-        - name: radiusKm
-          in: query
-          schema:
-            type: number
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-      responses:
-        "200":
-          description: Feed page
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PostSummaryPage"
-  /me/posts:
-    get:
-      parameters:
-        - name: status
+            type: integer
+        - name: sig
           in: query
           required: true
           schema:
             type: string
-            enum: [draft, published]
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
       responses:
         "200":
-          description: User post page
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: SIGNATURE_INVALID or expired
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PostSummaryPage"
-  /posts/{id}/vote:
-    post:
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [value]
-              properties:
-                value:
-                  $ref: "#/components/schemas/VoteValue"
-      responses:
-        "200":
-          description: Updated vote
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VoteResult"
-  /posts/{id}/comments:
-    get:
-      security:
-        - bearerAuth: []
-        - {}
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-        - name: sort
-          in: query
-          schema:
-            $ref: "#/components/schemas/CommentSort"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-      responses:
-        "200":
-          description: Comment page
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CommentPage"
-    post:
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [body]
-              properties:
-                body:
-                  type: string
-                  minLength: 1
-                  maxLength: 1000
-                parentId:
-                  type: [string, "null"]
-      responses:
-        "201":
-          description: Created comment
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Comment"
-  /comments/{id}:
-    delete:
-      parameters:
-        - $ref: "#/components/parameters/CommentId"
-      responses:
-        "200":
-          description: Deleted comment
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Comment"
-  /posts/{id}/report:
-    post:
-      parameters:
-        - $ref: "#/components/parameters/PostId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReportRequest"
-      responses:
-        "201":
-          description: Report accepted
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [ok]
-                properties:
-                  ok: {type: boolean, const: true}
-  /comments/{id}/vote:
-    post:
-      parameters:
-        - $ref: "#/components/parameters/CommentId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CommentVoteRequest"
-      responses:
-        "200":
-          description: Updated comment vote
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CommentVoteResult"
+                $ref: "#/components/schemas/ErrorBody"
   /stats:
     get:
+      operationId: getStats
+      tags: [system]
+      summary: E19 — analytics (stretch; Tiger Data)
       security: []
       responses:
         "200":
-          description: Aggregate project statistics
+          description: Stats
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Stats"
+                $ref: "#/components/schemas/StatsResponse"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: "Auth0 access token. Authorization: Bearer <token>."
   parameters:
-    PostId:
+    ProposalId:
       name: id
       in: path
       required: true
-      schema:
-        type: string
-    AssetId:
-      name: assetId
-      in: path
-      required: true
-      schema:
-        type: string
-    JobId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    CommentId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema:
-        type: string
-        format: uuid
-    Latitude:
-      name: lat
-      in: query
-      schema:
-        type: number
-        minimum: -90
-        maximum: 90
-    Longitude:
-      name: lng
-      in: query
-      schema:
-        type: number
-        minimum: -180
-        maximum: 180
-    Limit:
-      name: limit
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 50
-        default: 20
-    Cursor:
-      name: cursor
-      in: query
       schema:
         type: string
   responses:
-    StandardError:
-      description: Standard WhatIf API error
+    AuthRequired:
+      description: AUTH_REQUIRED
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
+            $ref: "#/components/schemas/ErrorBody"
+    ValidationError:
+      description: VALIDATION_ERROR
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
   schemas:
-    Health:
-      type: object
-      required: [ok, db]
-      properties:
-        ok: {type: boolean}
-        db: {type: boolean}
-    PostStatus:
+    ProposalStatus:
       type: string
-      enum: [draft, ready, published, removed]
+      enum: [draft, ready, published]
+    Category:
+      type: string
+      enum: [shade]
     AssetKind:
       type: string
       enum: [source, mask, concept]
-    LocationSource:
-      type: string
-      enum: [gps, exif, manual, none]
     JobKind:
       type: string
-      enum: [generate]
+      enum: [scene, preview]
     JobStatus:
       type: string
       enum: [queued, running, succeeded, failed]
     JobStage:
       type: string
-      enum: [queued, moderate, prompt, render, review, title, finalize, done]
+      enum: [queued, analyze, prompt, render, review, draft, finalize, done]
     ReviewVerdict:
       type: string
       enum: [clear, needs_review, blocked]
     FlagSeverity:
       type: string
       enum: [info, warning, blocking]
+    FlagCode:
+      type: string
+      enum:
+        [
+          UNMASKED_CHANGE,
+          REQUEST_MISMATCH,
+          IMPLAUSIBLE_STRUCTURE,
+          PEOPLE_VISIBLE,
+          PLATE_VISIBLE,
+          PRIVATE_INFO_VISIBLE,
+          SAFETY_OR_COMPLIANCE_CLAIM,
+          LOW_QUALITY_EDIT,
+          REVIEW_UNAVAILABLE,
+        ]
     Provider:
       type: string
-      enum: [ollama, gemini, comfyui, gemini_image, xai_image, fake]
-    FeedTab:
+      enum: [ollama, gemini, comfyui, gemini_image, fake]
+    ErrorCode:
       type: string
-      enum: [local, global]
-    FeedSort:
+      enum:
+        [
+          AUTH_REQUIRED,
+          NOT_FOUND,
+          VALIDATION_ERROR,
+          CONSENT_REQUIRED,
+          APPROVAL_REQUIRED,
+          UNSUPPORTED_IMAGE,
+          IMAGE_TOO_LARGE,
+          MASK_EMPTY,
+          MASK_TOO_LARGE,
+          MASK_SIZE_MISMATCH,
+          REVISION_CONFLICT,
+          INVALID_STATE,
+          JOB_IN_PROGRESS,
+          REVIEW_BLOCKED,
+          FLAGS_NOT_ACKNOWLEDGED,
+          SIGNATURE_INVALID,
+          RATE_LIMITED,
+          PROVIDER_UNAVAILABLE,
+          PROVIDER_TIMEOUT,
+          INVALID_PROVIDER_OUTPUT,
+          RENDER_FAILED,
+          STALE_RESULT,
+          INTERNAL,
+        ]
+    DateTime:
       type: string
-      enum: [hot, new, top]
-    VoteValue:
-      type: integer
-      enum: [-1, 0, 1]
-    CommentSort:
-      type: string
-      enum: [old, new]
+      format: date-time
+      description: ISO-8601 UTC with Z.
+      example: "2026-10-10T17:00:00Z"
     Asset:
       type: object
       required: [id, kind, width, height, mimeType, sha256, url, urlExpiresAt]
-      additionalProperties: true
       properties:
-        id: {type: string}
-        kind: {$ref: "#/components/schemas/AssetKind"}
-        width: {type: integer}
-        height: {type: integer}
-        mimeType: {type: string}
-        sha256: {type: string}
-        url: {type: string, format: uri}
-        urlExpiresAt: {type: string, format: date-time}
-    Location:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/AssetKind"
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+        mimeType:
+          type: string
+        sha256:
+          type: string
+        url:
+          type: string
+          format: uri
+          description: HMAC-signed media URL (E17).
+        urlExpiresAt:
+          $ref: "#/components/schemas/DateTime"
+    Option:
       type: object
-      required: [lat, lng, source]
+      required: [id, category, title, description, editGoal, maskHint, requestDraft]
       properties:
-        lat: {type: number, minimum: -90, maximum: 90}
-        lng: {type: number, minimum: -180, maximum: 180}
-        source: {$ref: "#/components/schemas/LocationSource"}
-    Author:
+        id:
+          type: string
+          description: "From the fixed catalog (§10.3): shade_canopy, shade_tree, shade_sail."
+        category:
+          $ref: "#/components/schemas/Category"
+        title:
+          type: string
+        description:
+          type: string
+        editGoal:
+          type: string
+        maskHint:
+          type: string
+        requestDraft:
+          type: string
+    Uncertainty:
       type: object
-      required: [displayName, isViewer]
+      required: [id, question]
       properties:
-        displayName: {type: string}
-        isViewer: {type: boolean}
-    ErrorBody:
+        id:
+          type: string
+        question:
+          type: string
+    Scene:
       type: object
-      required: [code, message, retryable, fieldErrors]
+      required: [summary, observations, uncertainties, preserve, options, provider, model, analyzedAt]
       properties:
-        code: {type: string}
-        message: {type: string}
-        retryable: {type: boolean}
-        fieldErrors:
-          type: object
-          additionalProperties: true
-    ErrorEnvelope:
-      type: object
-      required: [error]
-      properties:
-        error: {$ref: "#/components/schemas/ErrorBody"}
-    Job:
-      type: object
-      required: [id, postId, kind, status, stage, attempt, createdAt, updatedAt, error]
-      additionalProperties: true
-      properties:
-        id: {type: string}
-        postId: {type: string}
-        kind: {$ref: "#/components/schemas/JobKind"}
-        status: {$ref: "#/components/schemas/JobStatus"}
-        stage: {$ref: "#/components/schemas/JobStage"}
-        attempt: {type: integer}
-        createdAt: {type: string, format: date-time}
-        updatedAt: {type: string, format: date-time}
-        error:
-          type: [object, "null"]
-    Flag:
+        summary:
+          type: string
+        observations:
+          type: array
+          items:
+            type: string
+        uncertainties:
+          type: array
+          items:
+            $ref: "#/components/schemas/Uncertainty"
+        preserve:
+          type: array
+          items:
+            type: string
+        options:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/Option"
+        provider:
+          $ref: "#/components/schemas/Provider"
+        model:
+          type: string
+        analyzedAt:
+          $ref: "#/components/schemas/DateTime"
+    ReviewFlag:
       type: object
       required: [id, code, severity, message]
       properties:
-        id: {type: string}
-        code: {type: string}
-        severity: {$ref: "#/components/schemas/FlagSeverity"}
-        message: {type: string}
+        id:
+          type: string
+        code:
+          $ref: "#/components/schemas/FlagCode"
+        severity:
+          $ref: "#/components/schemas/FlagSeverity"
+        message:
+          type: string
     Review:
       type: object
       required: [verdict, flags, outsideMaskChange, provider, model, reviewedAt]
       properties:
-        verdict: {$ref: "#/components/schemas/ReviewVerdict"}
+        verdict:
+          $ref: "#/components/schemas/ReviewVerdict"
         flags:
           type: array
-          items: {$ref: "#/components/schemas/Flag"}
+          items:
+            $ref: "#/components/schemas/ReviewFlag"
         outsideMaskChange:
-          type: [number, "null"]
-        provider: {$ref: "#/components/schemas/Provider"}
-        model: {type: string}
-        reviewedAt: {type: string, format: date-time}
+          type: number
+          minimum: 0
+          maximum: 1
+        provider:
+          $ref: "#/components/schemas/Provider"
+        model:
+          type: string
+        reviewedAt:
+          $ref: "#/components/schemas/DateTime"
     Generation:
       type: object
-      required: [provider, model, seed, durationMs, workflowVersion, prompt, createdAt]
+      required: [provider, model, seed, durationMs, workflowVersion, optionId, createdAt]
       properties:
-        provider: {$ref: "#/components/schemas/Provider"}
-        model: {type: string}
-        seed: {type: [integer, "null"]}
-        durationMs: {type: integer}
-        workflowVersion: {type: string}
-        prompt: {type: string}
-        createdAt: {type: string, format: date-time}
-    Post:
+        provider:
+          $ref: "#/components/schemas/Provider"
+        model:
+          type: string
+        seed:
+          type: integer
+          nullable: true
+        durationMs:
+          type: integer
+          minimum: 0
+        workflowVersion:
+          type: string
+        optionId:
+          type: string
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+    Job:
       type: object
-      required: [id, revision, status, createdAt, updatedAt, publishedAt, author, title, prompt, placeLabel, location, distanceKm, source, concept, maskAssetId, review, generation, activeJob, aiDisclosure, score, upvotes, downvotes, viewerVote, commentCount]
-      additionalProperties: true
+      required: [id, proposalId, kind, status, stage, attempt, createdAt, updatedAt]
       properties:
-        id: {type: string}
-        revision: {type: integer}
-        status: {$ref: "#/components/schemas/PostStatus"}
-        createdAt: {type: string, format: date-time}
-        updatedAt: {type: string, format: date-time}
-        publishedAt: {type: [string, "null"], format: date-time}
-        author: {$ref: "#/components/schemas/Author"}
-        title: {type: string}
-        prompt: {type: string}
-        placeLabel: {type: string}
-        location:
+        id:
+          type: string
+        proposalId:
+          type: string
+        kind:
+          $ref: "#/components/schemas/JobKind"
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        stage:
+          $ref: "#/components/schemas/JobStage"
+        attempt:
+          type: integer
+          minimum: 0
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+        updatedAt:
+          $ref: "#/components/schemas/DateTime"
+        error:
+          description: Present on failure; same shape as ErrorBody.error.
           oneOf:
-            - {$ref: "#/components/schemas/Location"}
-            - {type: "null"}
-        distanceKm: {type: [number, "null"]}
-        source: {$ref: "#/components/schemas/Asset"}
+            - type: "null"
+            - $ref: "#/components/schemas/ErrorDetail"
+    Author:
+      type: object
+      required: [displayName, isViewer]
+      properties:
+        displayName:
+          type: string
+        isViewer:
+          type: boolean
+    Proposal:
+      type: object
+      required:
+        [
+          id,
+          revision,
+          status,
+          createdAt,
+          updatedAt,
+          author,
+          category,
+          placeLabel,
+          problemText,
+          title,
+          changeRequest,
+          recipientLabel,
+          source,
+          aiDisclosure,
+          supportCount,
+          viewerHasSupported,
+        ]
+      properties:
+        id:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/ProposalStatus"
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+        updatedAt:
+          $ref: "#/components/schemas/DateTime"
+        publishedAt:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/DateTime"
+        author:
+          $ref: "#/components/schemas/Author"
+        category:
+          $ref: "#/components/schemas/Category"
+        placeLabel:
+          type: string
+        problemText:
+          type: string
+        title:
+          type: string
+        changeRequest:
+          type: string
+        recipientLabel:
+          type: string
+        selectedOptionId:
+          type: ["string", "null"]
+        source:
+          $ref: "#/components/schemas/Asset"
         concept:
           oneOf:
-            - {$ref: "#/components/schemas/Asset"}
-            - {type: "null"}
-        maskAssetId: {type: [string, "null"]}
+            - type: "null"
+            - $ref: "#/components/schemas/Asset"
+        maskAssetId:
+          type: ["string", "null"]
+          description: Only present for the owner.
+        scene:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/Scene"
         review:
           oneOf:
-            - {$ref: "#/components/schemas/Review"}
-            - {type: "null"}
+            - type: "null"
+            - $ref: "#/components/schemas/Review"
         generation:
           oneOf:
-            - {$ref: "#/components/schemas/Generation"}
-            - {type: "null"}
+            - type: "null"
+            - $ref: "#/components/schemas/Generation"
         activeJob:
           oneOf:
-            - {$ref: "#/components/schemas/Job"}
-            - {type: "null"}
-        aiDisclosure: {type: string}
-        score: {type: integer}
-        upvotes: {type: integer}
-        downvotes: {type: integer}
-        viewerVote: {$ref: "#/components/schemas/VoteValue"}
-        commentCount: {type: integer}
-    PostSummary:
+            - type: "null"
+            - $ref: "#/components/schemas/Job"
+        aiDisclosure:
+          type: string
+        supportCount:
+          type: integer
+          minimum: 0
+        viewerHasSupported:
+          type: boolean
+    ProposalSummary:
       type: object
-      required: [id, status, title, promptPreview, placeLabel, location, distanceKm, publishedAt, updatedAt, sourceThumbUrl, conceptThumbUrl, score, viewerVote, commentCount, author]
-      additionalProperties: true
+      required:
+        [
+          id,
+          status,
+          title,
+          placeLabel,
+          category,
+          updatedAt,
+          sourceThumbUrl,
+          conceptThumbUrl,
+          supportCount,
+          viewerHasSupported,
+          author,
+        ]
       properties:
-        id: {type: string}
-        status: {$ref: "#/components/schemas/PostStatus"}
-        title: {type: string}
-        promptPreview: {type: string, maxLength: 140}
-        placeLabel: {type: string}
-        location:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProposalStatus"
+        title:
+          type: string
+        placeLabel:
+          type: string
+        category:
+          $ref: "#/components/schemas/Category"
+        publishedAt:
           oneOf:
-            - {$ref: "#/components/schemas/Location"}
-            - {type: "null"}
-        distanceKm: {type: [number, "null"]}
-        publishedAt: {type: [string, "null"], format: date-time}
-        updatedAt: {type: string, format: date-time}
-        sourceThumbUrl: {type: string, format: uri}
-        conceptThumbUrl: {type: [string, "null"], format: uri}
-        score: {type: integer}
-        viewerVote: {$ref: "#/components/schemas/VoteValue"}
-        commentCount: {type: integer}
-        author: {$ref: "#/components/schemas/Author"}
+            - type: "null"
+            - $ref: "#/components/schemas/DateTime"
+        updatedAt:
+          $ref: "#/components/schemas/DateTime"
+        sourceThumbUrl:
+          type: string
+          format: uri
+        conceptThumbUrl:
+          oneOf:
+            - type: "null"
+            - type: string
+              format: uri
+        supportCount:
+          type: integer
+          minimum: 0
+        viewerHasSupported:
+          type: boolean
+        author:
+          $ref: "#/components/schemas/Author"
+    SupportResult:
+      type: object
+      required: [proposalId, supportCount, viewerHasSupported, alreadySupported]
+      properties:
+        proposalId:
+          type: string
+        supportCount:
+          type: integer
+          minimum: 0
+        viewerHasSupported:
+          type: boolean
+        alreadySupported:
+          type: boolean
+    Packet:
+      type: object
+      required: [url, expiresAt, exportedAt, supportCountAtExport]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HMAC-signed PDF URL (E18).
+        expiresAt:
+          $ref: "#/components/schemas/DateTime"
+        exportedAt:
+          $ref: "#/components/schemas/DateTime"
+        supportCountAtExport:
+          type: integer
+          minimum: 0
     Me:
       type: object
       required: [id, displayName, createdAt]
       properties:
-        id: {type: string}
-        displayName: {type: string, minLength: 2, maxLength: 40}
-        createdAt: {type: string, format: date-time}
+        id:
+          type: string
+          description: Opaque; never the Auth0 sub.
+        displayName:
+          type: string
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+    ProviderMap:
+      type: object
+      required: [scene, render, review]
+      properties:
+        scene:
+          $ref: "#/components/schemas/Provider"
+        render:
+          $ref: "#/components/schemas/Provider"
+        review:
+          $ref: "#/components/schemas/Provider"
     PublicConfig:
       type: object
-      required: [apiVersion, maxUploadBytes, maxImageEdge, promptMinChars, promptMaxChars, localRadiusKm, localRadiusMaxKm, aiDisclosure, providers]
+      required: [apiVersion, categories, maxUploadBytes, maxImageEdge, aiDisclosure, providers]
       properties:
-        apiVersion: {type: string}
-        maxUploadBytes: {type: integer}
-        maxImageEdge: {type: integer}
-        promptMinChars: {type: integer}
-        promptMaxChars: {type: integer}
-        localRadiusKm: {type: number}
-        localRadiusMaxKm: {type: number}
-        aiDisclosure: {type: string}
-        providers:
-          type: object
-          required: [prompt, render, review]
-          properties:
-            prompt: {$ref: "#/components/schemas/Provider"}
-            render: {$ref: "#/components/schemas/Provider"}
-            review: {$ref: "#/components/schemas/Provider"}
-    PostSummaryPage:
-      type: object
-      required: [items, nextCursor]
-      properties:
-        items:
-          type: array
-          items: {$ref: "#/components/schemas/PostSummary"}
-        nextCursor: {type: [string, "null"]}
-    Comment:
-      type: object
-      required: [id, postId, parentId, author, body, createdAt, isDeleted, replyCount]
-      properties:
-        id: {type: string}
-        postId: {type: string}
-        parentId: {type: [string, "null"]}
-        author: {$ref: "#/components/schemas/Author"}
-        body: {type: string}
-        createdAt: {type: string, format: date-time}
-        isDeleted: {type: boolean}
-        replyCount: {type: integer}
-    CommentPage:
-      type: object
-      required: [items, nextCursor]
-      properties:
-        items:
-          type: array
-          items: {$ref: "#/components/schemas/Comment"}
-        nextCursor: {type: [string, "null"]}
-    VoteResult:
-      type: object
-      required: [postId, score, upvotes, downvotes, viewerVote]
-      properties:
-        postId: {type: string}
-        score: {type: integer}
-        upvotes: {type: integer}
-        downvotes: {type: integer}
-        viewerVote: {$ref: "#/components/schemas/VoteValue"}
-    MaskRequest:
-      type: object
-      required: [expectedRevision, strokes]
-      properties:
-        expectedRevision: {type: integer}
-        strokes:
-          $ref: "#/components/schemas/MaskStrokes"
-    MaskPngRequest:
-      type: object
-      required: [expectedRevision, mask]
-      properties:
-        expectedRevision: {type: integer}
-        mask:
+        apiVersion:
           type: string
-          format: binary
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        maxUploadBytes:
+          type: integer
+        maxImageEdge:
+          type: integer
+        aiDisclosure:
+          type: string
+        providers:
+          $ref: "#/components/schemas/ProviderMap"
+    MaskStroke:
+      type: object
+      required: [mode, width, points]
+      properties:
+        mode:
+          type: string
+          enum: [paint, erase]
+        width:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1
+          description: Brush diameter as a fraction of image width.
+        points:
+          type: array
+          minItems: 1
+          items:
+            type: array
+            prefixItems:
+              - type: number
+                minimum: 0
+                maximum: 1
+              - type: number
+                minimum: 0
+                maximum: 1
+            minItems: 2
+            maxItems: 2
     MaskStrokes:
       type: object
       required: [version, strokes]
       properties:
-        version: {type: integer, const: 1}
+        version:
+          type: integer
+          const: 1
         strokes:
           type: array
           maxItems: 200
           items:
-            type: object
-            required: [mode, width, points]
-            properties:
-              mode:
-                type: string
-                enum: [paint, erase]
-              width:
-                type: number
-                exclusiveMinimum: 0
-                maximum: 1
-              points:
-                type: array
-                maxItems: 5000
-                items:
-                  type: array
-                  minItems: 2
-                  maxItems: 2
-                  items:
-                    type: number
-                    minimum: 0
-                    maximum: 1
+            $ref: "#/components/schemas/MaskStroke"
+    ErrorDetail:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+        retryable:
+          type: boolean
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+    HealthResponse:
+      type: object
+      required: [ok, db]
+      properties:
+        ok:
+          type: boolean
+        db:
+          type: boolean
+    ProposalCreateResponse:
+      type: object
+      required: [proposal, jobId]
+      properties:
+        proposal:
+          $ref: "#/components/schemas/Proposal"
+        jobId:
+          type: string
+    JobAccepted:
+      type: object
+      required: [jobId, proposalId]
+      properties:
+        jobId:
+          type: string
+        proposalId:
+          type: string
     MaskSaved:
       type: object
       required: [assetId, revision]
       properties:
-        assetId: {type: string}
-        revision: {type: integer}
-    GenerateRequest:
-      type: object
-      required: [expectedRevision, prompt, maskAssetId]
-      properties:
-        expectedRevision: {type: integer}
-        prompt: {type: string, minLength: 5, maxLength: 300}
-        maskAssetId: {type: string}
-    GenerateAccepted:
-      type: object
-      required: [jobId, postId]
-      properties:
-        jobId: {type: string}
-        postId: {type: string}
-    ReportRequest:
-      type: object
-      required: [reason]
-      properties:
-        reason:
+        assetId:
           type: string
-          enum: [spam, offensive, private_info, other]
-        note:
-          type: string
-          maxLength: 1000
-    CommentVoteRequest:
+        revision:
+          type: integer
+          minimum: 1
+    ProposalListPage:
       type: object
-      required: [value]
+      required: [items, nextCursor]
       properties:
-        value:
-          $ref: "#/components/schemas/VoteValue"
-    CommentVoteResult:
-      type: object
-      required: [commentId, score, viewerVote]
-      properties:
-        commentId: {type: string}
-        score: {type: integer}
-        viewerVote:
-          $ref: "#/components/schemas/VoteValue"
-    Stats:
-      type: object
-      required: [postsPublished, votesLast24h, topPlaces]
-      properties:
-        postsPublished: {type: integer}
-        votesLast24h:
+        items:
           type: array
           items:
-            type: object
-            required: [bucket, count]
-            properties:
-              bucket: {type: string, format: date-time}
-              count: {type: integer}
-        topPlaces:
+            $ref: "#/components/schemas/ProposalSummary"
+        nextCursor:
+          type: ["string", "null"]
+    StatsBucket:
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket:
+          $ref: "#/components/schemas/DateTime"
+        count:
+          type: integer
+          minimum: 0
+    StatsResponse:
+      type: object
+      required: [proposalsPublished, supportsTotal, supportsByHour]
+      properties:
+        proposalsPublished:
+          type: integer
+          minimum: 0
+        supportsTotal:
+          type: integer
+          minimum: 0
+        supportsByHour:
           type: array
           items:
-            type: object
-            required: [placeLabel, count]
-            properties:
-              placeLabel: {type: string}
-              count: {type: integer}
+            $ref: "#/components/schemas/StatsBucket"

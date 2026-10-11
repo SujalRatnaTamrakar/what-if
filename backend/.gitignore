@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+test_db.sqlite3
+media/
+*.pdf
+.pytest_cache/

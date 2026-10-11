@@ -1,16 +1,38 @@
-from PIL import Image, ImageDraw
-from ..types import ProviderOutput
+"""Fake render provider — dev only.
+
+Draws a semi-transparent teal fill plus "FAKE RENDER" text inside the mask
+region. Never used silently: the app shows a banner whenever the config
+reports a fake renderer (§1 honesty rules).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
+
+WORKFLOW_VERSION = "fake_v1"
 
 
-class FakeProvider:
-    """Development only. The app must show a 'Demo renderer (fake)' banner when RENDER_PROVIDER=fake."""
+def render_at_work_size(
+    work_source: Path, work_mask: Path, prompt, *, seed: int, timeout_s: int
+):
+    """Return (fake-edited PIL image at work size, model name)."""
+    img = Image.open(work_source).convert("RGBA")
+    mask = Image.open(work_mask).convert("L").resize(img.size, Image.NEAREST)
 
-    def edit(self, source, mask, prompt, *, seed, timeout_s):
-        img = source.convert("RGB").copy()
-        teal = Image.new("RGB", img.size, (20, 160, 150))
-        img.paste(Image.blend(img, teal, 0.45), mask=mask)            # 45% teal inside the mask
-        bbox = mask.getbbox()
-        if bbox:
-            cx, cy = (bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2
-            ImageDraw.Draw(img).text((cx - 30, cy), "FAKE RENDER", fill=(255, 255, 255))
-        return ProviderOutput(img, "fake", "none", seed, "fake_v1")
+    teal = Image.new("RGBA", img.size, (0, 150, 150, 110))
+    img = Image.composite(teal, img, mask)
+
+    bbox = mask.getbbox()
+    if bbox:
+        cx = (bbox[0] + bbox[2]) // 2
+        cy = (bbox[1] + bbox[3]) // 2
+        d = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", size=max(12, img.size[0] // 28))
+        except Exception:
+            font = ImageFont.load_default()
+        d.text((cx, cy), "FAKE RENDER", fill=(255, 255, 255, 255), font=font, anchor="mm")
+
+    return img.convert("RGB"), "fake"

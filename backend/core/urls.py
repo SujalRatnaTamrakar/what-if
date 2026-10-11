@@ -2,6 +2,7 @@ from django.urls import path
 
 from core.views.config import public_config
 from core.views.health import health
+from core.views.jobs import create_generation_job, get_job
 from core.views.me import me
 from core.views.media import media
 from core.views.masks import save_mask
@@ -16,4 +17,10 @@ urlpatterns = [
     path("posts", create_post, name="create-post"),
     path("posts/<uuid:post_id>", get_post, name="post-detail"),
     path("posts/<uuid:post_id>/mask", save_mask, name="save-mask"),
+    path(
+        "posts/<uuid:post_id>/generate",
+        create_generation_job,
+        name="create-generation-job",
+    ),
+    path("jobs/<uuid:job_id>", get_job, name="get-job"),
 ]

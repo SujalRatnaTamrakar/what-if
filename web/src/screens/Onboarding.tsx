@@ -10,6 +10,7 @@ import { Display } from "../ui/Display";
 import { Button } from "../ui/Button";
 import { BeforeAfterSlider } from "../components/BeforeAfterSlider";
 import { PeopleIcon, DownloadIcon, SproutIcon } from "../components/icons";
+import { Wordmark } from "../components/Wordmark";
 import { markOnboardingSeen } from "../lib/onboarding";
 import { useRouter } from "../lib/nav";
 import { shadows, theme } from "../theme";
@@ -69,10 +70,7 @@ export default function Onboarding() {
       <View style={styles.top}>
         <View style={styles.brand}>
           <SproutIcon size={28} />
-          <Text style={styles.brandText}>
-            <Text style={{ color: theme.colors.accent }}>What</Text>
-            <Text style={{ color: theme.colors.orange }}>If</Text>
-          </Text>
+          <Wordmark size={23} style={{ marginLeft: 6 }} />
         </View>
         {page < 2 ? (
           <Pressable onPress={() => void finish()} feedback="opacity" style={{ padding: 8 }}>
@@ -190,7 +188,6 @@ const styles = styleSheet({
     alignSelf: "center",
   },
   brand: { flexDirection: "row", alignItems: "center" },
-  brandText: { fontSize: 22, fontWeight: 700, marginLeft: 6, letterSpacing: -0.4 },
   skip: { fontSize: 15, color: theme.colors.muted, fontWeight: 600 },
   pager: { flex: 1, minHeight: 0, flexDirection: "row", scrollSnapType: "x mandatory", overflowY: "auto" },
   page: { alignItems: "center", paddingLeft: 32, paddingRight: 32, paddingTop: 12, scrollSnapAlign: "start", scrollSnapStop: "always" },

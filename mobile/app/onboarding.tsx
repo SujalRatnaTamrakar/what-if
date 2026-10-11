@@ -22,6 +22,7 @@ import { Display } from "../src/ui/Display";
 import { Button } from "../src/ui/Button";
 import { BeforeAfterSlider } from "../src/components/BeforeAfterSlider";
 import { PeopleIcon, DownloadIcon, SproutIcon } from "../src/components/icons";
+import { Wordmark } from "../src/components/Wordmark";
 import { markOnboardingSeen } from "../src/lib/onboarding";
 import { shadows, theme } from "../src/theme";
 
@@ -57,10 +58,7 @@ export default function Onboarding() {
       <View style={styles.top}>
         <View style={styles.brand}>
           <SproutIcon size={28} />
-          <Text style={styles.brandText}>
-            <Text style={{ color: theme.colors.accent }}>What</Text>
-            <Text style={{ color: theme.colors.orange }}>If</Text>
-          </Text>
+          <Wordmark size={23} style={{ marginLeft: 6 }} />
         </View>
         {page < 2 ? (
           <Text onPress={finish} style={styles.skip} accessibilityRole="button">
@@ -172,7 +170,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 22, height: 44 },
   brand: { flexDirection: "row", alignItems: "center" },
-  brandText: { fontSize: 22, fontWeight: "700", marginLeft: 6, letterSpacing: -0.4 },
   skip: { fontSize: 15, color: theme.colors.muted, fontWeight: "600", padding: 8 },
   pager: { flex: 1 },
   page: { alignItems: "center", paddingHorizontal: 32, paddingTop: 12 },

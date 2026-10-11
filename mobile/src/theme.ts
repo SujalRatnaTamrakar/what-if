@@ -43,6 +43,7 @@ export const fonts = {
   display: "Fraunces_600SemiBold",
   displayItalic: "Fraunces_600SemiBold_Italic",
   displayBlack: "Fraunces_800ExtraBold",
+  displayBlackItalic: "Fraunces_800ExtraBold_Italic",
 } as const;
 
 /** Maps a style fontWeight onto the matching Poppins face. */

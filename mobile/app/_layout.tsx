@@ -20,6 +20,7 @@ import {
   Fraunces_600SemiBold,
   Fraunces_600SemiBold_Italic,
   Fraunces_800ExtraBold,
+  Fraunces_800ExtraBold_Italic,
 } from "@expo-google-fonts/fraunces";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -67,6 +68,7 @@ export default function RootLayout() {
     Fraunces_600SemiBold,
     Fraunces_600SemiBold_Italic,
     Fraunces_800ExtraBold,
+    Fraunces_800ExtraBold_Italic,
   });
   const ready = loaded || fontError != null;
 

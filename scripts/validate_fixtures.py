@@ -22,6 +22,7 @@ SCHEMA_BY_FIXTURE = {
     "post_draft.json": "Post",
     "post_ready.json": "Post",
     "post_published.json": "Post",
+    "mask_saved.json": "MaskSaved",
     "error_revision_conflict.json": "ErrorEnvelope",
     "error_auth_required.json": "ErrorEnvelope",
 }
